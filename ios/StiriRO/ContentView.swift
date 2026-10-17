@@ -10,7 +10,7 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 filters
                 if store.isLoading && store.articles.isEmpty { ProgressView("Se încarcă știrile…").frame(maxHeight: .infinity) }
-                else if store.filteredArticles.isEmpty { ContentUnavailableView("Nicio știre", systemImage: "newspaper", description: Text("Schimbă filtrele sau actualizează fluxul.")) }
+                else if store.filteredArticles.isEmpty { emptyState }
                 else { articleList }
             }
             .navigationTitle("Știri RO")
@@ -72,6 +72,21 @@ struct ContentView: View {
         .refreshable { await store.refresh() }
     }
 
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "newspaper")
+                .font(.system(size: 42))
+                .foregroundStyle(.secondary)
+            Text("Nicio știre").font(.title3.bold())
+            Text("Schimbă filtrele sau actualizează fluxul.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
     private func filterChip(_ text: String, active: Bool, action: @escaping () -> Void) -> some View {
         Button(text, action: action).buttonStyle(.borderedProminent).tint(active ? .accentColor : .gray.opacity(0.35)).controlSize(.small)
     }
@@ -107,4 +122,3 @@ private struct ArticleRow: View {
         .padding(compact ? 8 : 11).background(.background).clipShape(RoundedRectangle(cornerRadius: 14)).shadow(color: .black.opacity(0.06), radius: 4, y: 2)
     }
 }
-
