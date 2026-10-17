@@ -23,13 +23,12 @@ test("Windows packaging produces an assisted NSIS installer", () => {
 });
 
 test("release build is bound to the real GitHub update channel", () => {
+  const packageJson = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
   const buildScript = fs.readFileSync(path.join(root, "scripts", "build-windows.js"), "utf8");
 
-  assert.match(buildScript, /STIRIRO_GITHUB_OWNER/);
-  assert.match(buildScript, /STIRIRO_GITHUB_REPO/);
-  assert.match(buildScript, /\|\| "jitzos"/);
-  assert.match(buildScript, /\|\| "stiri-ro"/);
-  assert.match(buildScript, /provider: "github"/);
+  assert.equal(packageJson.build.publish[0].provider, "github");
+  assert.equal(packageJson.build.publish[0].owner, "jitzos");
+  assert.equal(packageJson.build.publish[0].repo, "stiri-ro");
   assert.match(buildScript, /Platform\.WINDOWS.*nsis/s);
 });
 
@@ -48,8 +47,9 @@ test("installer offers login startup and removes it on uninstall", () => {
   const installer = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf8");
 
   assert.match(installer, /Pornește Știri RO când mă conectez la Windows/);
-  assert.match(installer, /FileExists.*APP_EXECUTABLE_FILENAME/);
+  assert.match(installer, /FileExists.*APP_PRODUCT_FILENAME/);
   assert.doesNotMatch(installer, /isUpdated/);
+  assert.doesNotMatch(installer, /MUI_HEADER_TEXT/);
   assert.match(installer, /WriteRegStr HKCU .*CurrentVersion\\Run/);
   assert.match(installer, /--hidden/);
   assert.match(installer, /customUnInstall[\s\S]*DeleteRegValue HKCU/);

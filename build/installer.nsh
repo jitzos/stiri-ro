@@ -1,6 +1,7 @@
 !include "LogicLib.nsh"
 !include "nsDialogs.nsh"
 
+!ifndef BUILD_UNINSTALLER
 Var StartAtLoginCheckbox
 Var StartAtLoginChoice
 Var ExistingInstall
@@ -14,12 +15,11 @@ Function StartAtLoginPageCreate
     Abort
 
   StrCpy $ExistingInstall "0"
-  ${If} ${FileExists} "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+  ${If} ${FileExists} "$INSTDIR\${APP_PRODUCT_FILENAME}.exe"
     StrCpy $ExistingInstall "1"
     Abort
   ${EndIf}
 
-  !insertmacro MUI_HEADER_TEXT "Opțiuni de pornire" "Alege cum pornește Știri RO."
   nsDialogs::Create 1018
   Pop $0
   ${If} $0 == error
@@ -43,13 +43,14 @@ FunctionEnd
   ${If} $ExistingInstall != "1"
     ${IfNot} ${Silent}
       ${If} $StartAtLoginChoice == ${BST_CHECKED}
-        WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCT_NAME}" "$\"$INSTDIR\${APP_EXECUTABLE_FILENAME}$\" --hidden"
+        WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCT_NAME}" "$\"$INSTDIR\${APP_PRODUCT_FILENAME}.exe$\" --hidden"
       ${Else}
         DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCT_NAME}"
       ${EndIf}
     ${EndIf}
   ${EndIf}
 !macroend
+!endif
 
 !macro customUnInstall
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCT_NAME}"
