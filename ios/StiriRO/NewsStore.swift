@@ -31,7 +31,8 @@ final class NewsStore: ObservableObject {
 
     var visibleSources: [NewsSource] {
         Catalog.sources.filter { !preferences.hiddenSourceIDs.contains($0.id) }.sorted {
-            let favoriteDifference = Int(preferences.favoriteSourceIDs.contains($1.id)) - Int(preferences.favoriteSourceIDs.contains($0.id))
+            let favoriteDifference = (preferences.favoriteSourceIDs.contains($1.id) ? 1 : 0)
+                - (preferences.favoriteSourceIDs.contains($0.id) ? 1 : 0)
             return favoriteDifference != 0 ? favoriteDifference < 0 : $0.name < $1.name
         }
     }
@@ -145,4 +146,3 @@ final class NewsStore: ObservableObject {
         return start < end ? (hour >= start && hour < end) : (hour >= start || hour < end)
     }
 }
-
