@@ -1,4 +1,4 @@
-# Știri RO 0.0.1
+# Știri RO
 
 Aplicație desktop pentru Windows care adună știrile publicate de 24 de publicații românești prin fluxurile lor RSS.
 

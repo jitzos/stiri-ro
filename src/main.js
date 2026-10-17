@@ -213,7 +213,7 @@ function createWindow() {
     minWidth: 820,
     minHeight: 620,
     backgroundColor: "#f4f1ea",
-    title: "Știri RO 0.0.1",
+    title: `Știri RO ${app.getVersion()}`,
     show: !startHidden,
     autoHideMenuBar: true,
     icon: path.join(__dirname, "assets", "tray-icon.png"),
