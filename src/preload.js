@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld("newsApi", {
   setMinimizeToTray: (enabled) => ipcRenderer.invoke("settings:minimize-to-tray", enabled),
   getStartAtLogin: () => ipcRenderer.invoke("settings:get-start-at-login"),
   setStartAtLogin: (enabled) => ipcRenderer.invoke("settings:set-start-at-login", enabled),
+  getPreferences: () => ipcRenderer.invoke("settings:get-preferences"),
+  updatePreferences: (patch) => ipcRenderer.invoke("settings:update-preferences", patch),
   getUpdateStatus: () => ipcRenderer.invoke("updates:get-status"),
   checkForUpdates: () => ipcRenderer.invoke("updates:check"),
   downloadUpdate: () => ipcRenderer.invoke("updates:download"),

@@ -1,0 +1,26 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const { normalizePreferences, orderedSources } = require("../src/preferences");
+
+const sourceIds = ["a", "b", "c"];
+const categoryIds = ["actualitate", "sport"];
+
+test("preferences reject unsupported values and complete source order", () => {
+  const preferences = normalizePreferences({
+    refreshIntervalMinutes: 17,
+    theme: "neon",
+    hiddenSourceIds: ["b", "invalid", "b"],
+    sourceOrder: ["c", "invalid"]
+  }, sourceIds, categoryIds);
+
+  assert.equal(preferences.refreshIntervalMinutes, 10);
+  assert.equal(preferences.theme, "system");
+  assert.deepEqual(preferences.hiddenSourceIds, ["b"]);
+  assert.deepEqual(preferences.sourceOrder, ["c", "a", "b"]);
+});
+
+test("favorite sources are shown first while preserving custom order", () => {
+  const sources = sourceIds.map((id) => ({ id }));
+  const preferences = normalizePreferences({ sourceOrder: ["c", "b", "a"], favoriteSourceIds: ["a"] }, sourceIds, categoryIds);
+  assert.deepEqual(orderedSources(sources, preferences).map(({ id }) => id), ["a", "c", "b"]);
+});

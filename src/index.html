@@ -24,7 +24,7 @@
     <header class="masthead">
       <div>
         <p class="eyebrow">ACTUALITATE · ROMÂNIA</p>
-        <h1>Știri <span>RO</span> <small>v0.0.1</small></h1>
+        <h1>Știri <span>RO</span> <small id="appVersion" aria-label="Versiunea aplicației"></small></h1>
       </div>
       <div class="header-actions">
         <button id="settingsButton" class="settings-button" type="button" aria-haspopup="dialog">
@@ -59,7 +59,12 @@
           <h2 id="feedTitle">Ultimele știri</h2>
           <p id="statusText" aria-live="polite">Se încarcă fluxurile…</p>
         </div>
-        <span id="articleCount" class="article-count"></span>
+        <div class="feed-actions">
+          <button id="savedFilterButton" class="secondary-button" type="button">☆ Salvate</button>
+          <button id="unreadFilterButton" class="secondary-button" type="button">Necitite</button>
+          <button id="markAllReadButton" class="secondary-button" type="button">Marchează citite</button>
+          <span id="articleCount" class="article-count"></span>
+        </div>
       </section>
 
       <div id="errorBanner" class="error-banner" hidden></div>
@@ -84,7 +89,7 @@
         <label class="setting-row">
           <span>
             <strong>Minimizează în tray</strong>
-            <small>Ascunde fereastra și continuă actualizarea la fiecare 5 minute.</small>
+            <small>Ascunde fereastra și continuă actualizarea în fundal.</small>
           </span>
           <input id="trayToggle" type="checkbox" checked />
         </label>
@@ -96,6 +101,80 @@
           </span>
           <input id="startupToggle" type="checkbox" />
         </label>
+
+        <section class="settings-section" aria-labelledby="notificationsTitle">
+          <label class="setting-row">
+            <span>
+              <strong id="notificationsTitle">Notificări Windows</strong>
+              <small id="notificationsHelp">Anunță știrile noi după actualizarea fluxurilor.</small>
+            </span>
+            <input id="notificationsToggle" type="checkbox" checked />
+          </label>
+          <div id="notificationOptions" class="setting-options">
+            <label class="setting-field">
+              <span>Cuvinte urmărite <small>Separate prin virgulă; gol înseamnă orice subiect.</small></span>
+              <input id="notificationKeywords" type="text" placeholder="ex: alegeri, tehnologie" />
+            </label>
+            <div class="quiet-hours">
+              <label><input id="quietHoursToggle" type="checkbox" /> Nu deranja</label>
+              <label>De la <input id="quietHoursStart" type="time" value="22:00" /></label>
+              <label>până la <input id="quietHoursEnd" type="time" value="08:00" /></label>
+            </div>
+            <details class="settings-details">
+              <summary>Surse și categorii pentru notificări</summary>
+              <p class="settings-hint">Dacă nu selectezi nimic, sunt permise toate.</p>
+              <strong class="option-heading">Surse</strong>
+              <div id="notificationSourceOptions" class="check-grid"></div>
+              <strong class="option-heading">Categorii</strong>
+              <div id="notificationCategoryOptions" class="check-grid"></div>
+            </details>
+          </div>
+        </section>
+
+        <section class="settings-section" aria-labelledby="refreshSettingsTitle">
+          <h3 id="refreshSettingsTitle">Actualizare automată</h3>
+          <div class="select-grid">
+            <label class="setting-field">Când aplicația este deschisă
+              <select id="refreshInterval">
+                <option value="5">5 minute</option><option value="10">10 minute</option>
+                <option value="15">15 minute</option><option value="30">30 minute</option><option value="60">60 minute</option>
+              </select>
+            </label>
+            <label class="setting-field">Când este în tray
+              <select id="trayRefreshInterval">
+                <option value="5">5 minute</option><option value="10">10 minute</option>
+                <option value="15">15 minute</option><option value="30">30 minute</option><option value="60">60 minute</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section class="settings-section" aria-labelledby="sourcesSettingsTitle">
+          <h3 id="sourcesSettingsTitle">Surse</h3>
+          <p class="settings-hint">Ascunde sursele nedorite, marchează favoritele și schimbă ordinea cu săgețile.</p>
+          <div id="sourceManager" class="source-manager"></div>
+        </section>
+
+        <section class="settings-section" aria-labelledby="appearanceTitle">
+          <h3 id="appearanceTitle">Aspect</h3>
+          <div class="select-grid three-columns">
+            <label class="setting-field">Temă
+              <select id="themeSelect">
+                <option value="system">După Windows</option><option value="light">Luminoasă</option><option value="dark">Întunecată</option>
+              </select>
+            </label>
+            <label class="setting-field">Text
+              <select id="fontSizeSelect">
+                <option value="small">Mic</option><option value="normal">Normal</option><option value="large">Mare</option>
+              </select>
+            </label>
+            <label class="setting-field">Carduri
+              <select id="densitySelect">
+                <option value="compact">Compacte</option><option value="comfortable">Normale</option>
+              </select>
+            </label>
+          </div>
+        </section>
 
         <section class="update-setting" aria-labelledby="updateTitle">
           <div>
@@ -109,6 +188,7 @@
 
     <template id="articleTemplate">
       <article class="article-card">
+        <button class="save-button" type="button" aria-label="Salvează articolul" title="Salvează articolul">☆</button>
         <button class="card-link" type="button">
           <div class="image-wrap">
             <img class="article-image" alt="" loading="lazy" referrerpolicy="no-referrer" />

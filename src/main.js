@@ -1,10 +1,14 @@
+const fs = require("node:fs");
 const path = require("node:path");
-const { app, BrowserWindow, ipcMain, Menu, nativeImage, shell, Tray, WebContentsView } = require("electron");
+const { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, shell, Tray, WebContentsView } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const { SOURCES, CATEGORIES, fetchAllFeeds } = require("./feeds");
-
-const FOREGROUND_REFRESH_MS = 10 * 60 * 1000;
-const TRAY_REFRESH_MS = 5 * 60 * 1000;
+const {
+  buildNotificationContent,
+  collectNewArticles,
+  filterNotificationArticles
+} = require("./notification-utils");
+const { normalizePreferences, orderedSources } = require("./preferences");
 
 let mainWindow = null;
 let tray = null;
@@ -14,6 +18,9 @@ let latestFeed = null;
 let minimizeToTray = true;
 let isQuitting = false;
 let articleView = null;
+let feedBaselineReady = false;
+let refreshMode = "foreground";
+const knownArticleIds = new Set();
 
 const ARTICLE_TOOLBAR_HEIGHT = 58;
 const LOGIN_ARGS = ["--hidden"];
@@ -28,6 +35,40 @@ let updateState = {
   percent: null,
   message: "Actualizările sunt disponibile în versiunea instalată."
 };
+const sourceIds = SOURCES.map(({ id }) => id);
+const categoryIds = CATEGORIES.map(({ id }) => id);
+let preferences = normalizePreferences({}, sourceIds, categoryIds);
+
+function preferencesPath() {
+  return path.join(app.getPath("userData"), "preferences.json");
+}
+
+function loadPreferences() {
+  try {
+    const stored = JSON.parse(fs.readFileSync(preferencesPath(), "utf8"));
+    return normalizePreferences(stored, sourceIds, categoryIds);
+  } catch {
+    return normalizePreferences({}, sourceIds, categoryIds);
+  }
+}
+
+function savePreferences(patch) {
+  preferences = normalizePreferences({ ...preferences, ...patch }, sourceIds, categoryIds);
+  fs.mkdirSync(path.dirname(preferencesPath()), { recursive: true });
+  fs.writeFileSync(preferencesPath(), `${JSON.stringify(preferences, null, 2)}\n`, "utf8");
+  return preferences;
+}
+
+function notifyAboutNewArticles(articles) {
+  const newArticles = collectNewArticles(articles, knownArticleIds, feedBaselineReady);
+  feedBaselineReady = true;
+  const notificationArticles = filterNotificationArticles(newArticles, preferences);
+  if (!Notification.isSupported() || notificationArticles.length === 0) return;
+
+  const notification = new Notification(buildNotificationContent(notificationArticles));
+  notification.on("click", showWindow);
+  notification.show();
+}
 
 function publishUpdateState(patch) {
   updateState = { ...updateState, ...patch };
@@ -150,9 +191,13 @@ async function openArticleView(url) {
   return true;
 }
 
-function scheduleRefresh(intervalMs) {
+function scheduleRefresh(mode = refreshMode) {
   if (refreshTimer) clearInterval(refreshTimer);
-  refreshTimer = setInterval(() => refreshFeeds().catch(() => {}), intervalMs);
+  refreshMode = mode;
+  const minutes = mode === "tray"
+    ? preferences.trayRefreshIntervalMinutes
+    : preferences.refreshIntervalMinutes;
+  refreshTimer = setInterval(() => refreshFeeds().catch(() => {}), minutes * 60 * 1000);
 }
 
 function showWindow() {
@@ -164,14 +209,17 @@ function showWindow() {
   if (mainWindow.isMinimized()) mainWindow.restore();
   mainWindow.show();
   mainWindow.focus();
-  scheduleRefresh(FOREGROUND_REFRESH_MS);
+  scheduleRefresh("foreground");
 }
 
 async function refreshFeeds() {
   if (refreshInFlight) return refreshInFlight;
 
-  refreshInFlight = fetchAllFeeds()
+  const hiddenSourceIds = new Set(preferences.hiddenSourceIds);
+  const activeSources = orderedSources(SOURCES, preferences).filter(({ id }) => !hiddenSourceIds.has(id));
+  refreshInFlight = fetchAllFeeds(activeSources)
     .then((result) => {
+      notifyAboutNewArticles(result.articles);
       latestFeed = result;
       for (const window of BrowserWindow.getAllWindows()) {
         if (!window.isDestroyed()) window.webContents.send("feeds:updated", result);
@@ -242,14 +290,14 @@ function createWindow() {
     if (!minimizeToTray) return;
     event.preventDefault();
     mainWindow.hide();
-    scheduleRefresh(TRAY_REFRESH_MS);
+    scheduleRefresh("tray");
   });
 
   mainWindow.on("close", (event) => {
     if (isQuitting || !minimizeToTray) return;
     event.preventDefault();
     mainWindow.hide();
-    scheduleRefresh(TRAY_REFRESH_MS);
+    scheduleRefresh("tray");
   });
 
   mainWindow.on("closed", () => {
@@ -258,12 +306,12 @@ function createWindow() {
   });
 }
 
-ipcMain.handle("feeds:list", () => SOURCES.map(({ feedUrl, ...source }) => source));
+ipcMain.handle("feeds:list", () => orderedSources(SOURCES, preferences).map(({ feedUrl, ...source }) => source));
 ipcMain.handle("categories:list", () => CATEGORIES);
 ipcMain.handle("feeds:refresh", () => refreshFeeds());
 ipcMain.handle("settings:minimize-to-tray", (_event, enabled) => {
   minimizeToTray = Boolean(enabled);
-  if (!minimizeToTray || mainWindow?.isVisible()) scheduleRefresh(FOREGROUND_REFRESH_MS);
+  if (!minimizeToTray || mainWindow?.isVisible()) scheduleRefresh("foreground");
   return minimizeToTray;
 });
 ipcMain.handle("settings:get-start-at-login", () => {
@@ -288,6 +336,18 @@ ipcMain.handle("settings:set-start-at-login", (_event, enabled) => {
   return {
     supported,
     enabled: app.getLoginItemSettings({ path: process.execPath, args: LOGIN_ARGS }).openAtLogin
+  };
+});
+ipcMain.handle("settings:get-preferences", () => ({
+  ...preferences,
+  notificationsSupported: Notification.isSupported()
+}));
+ipcMain.handle("settings:update-preferences", (_event, patch) => {
+  const updated = savePreferences(patch && typeof patch === "object" ? patch : {});
+  scheduleRefresh(refreshMode);
+  return {
+    ...updated,
+    notificationsSupported: Notification.isSupported()
   };
 });
 ipcMain.handle("updates:get-status", () => updateState);
@@ -317,9 +377,11 @@ ipcMain.handle("article:close", () => {
 app.setAppUserModelId("ro.stiriro.desktop");
 
 app.whenReady().then(() => {
+  preferences = loadPreferences();
+  refreshMode = startHidden ? "tray" : "foreground";
   createTray();
   createWindow();
-  scheduleRefresh(startHidden ? TRAY_REFRESH_MS : FOREGROUND_REFRESH_MS);
+  scheduleRefresh(refreshMode);
   initializeUpdater();
   app.on("activate", showWindow);
 });

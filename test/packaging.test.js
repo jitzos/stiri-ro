@@ -43,6 +43,42 @@ test("app exposes check, download and install update actions", () => {
   assert.match(preload, /updates:status/);
 });
 
+test("masthead displays the runtime application version", () => {
+  const html = fs.readFileSync(path.join(root, "src", "index.html"), "utf8");
+  const renderer = fs.readFileSync(path.join(root, "src", "renderer.js"), "utf8");
+
+  assert.match(html, /id="appVersion"/);
+  assert.doesNotMatch(html, /v0\.0\.1/);
+  assert.match(renderer, /appVersion\.textContent = `v\$\{status\.currentVersion\}`/);
+});
+
+test("settings expose persistent native notification controls", () => {
+  const main = fs.readFileSync(path.join(root, "src", "main.js"), "utf8");
+  const preload = fs.readFileSync(path.join(root, "src", "preload.js"), "utf8");
+  const html = fs.readFileSync(path.join(root, "src", "index.html"), "utf8");
+
+  assert.match(main, /new Notification/);
+  assert.match(main, /settings:get-preferences/);
+  assert.match(main, /settings:update-preferences/);
+  assert.match(preload, /settings:get-preferences/);
+  assert.match(preload, /settings:update-preferences/);
+  assert.match(html, /id="notificationsToggle"/);
+  assert.match(html, /id="quietHoursToggle"/);
+  assert.match(html, /id="notificationSourceOptions"/);
+});
+
+test("reader settings include refresh, sources, saved articles, unread and appearance controls", () => {
+  const html = fs.readFileSync(path.join(root, "src", "index.html"), "utf8");
+  const renderer = fs.readFileSync(path.join(root, "src", "renderer.js"), "utf8");
+
+  for (const id of ["refreshInterval", "trayRefreshInterval", "sourceManager", "savedFilterButton", "unreadFilterButton", "themeSelect", "fontSizeSelect", "densitySelect"]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  assert.match(renderer, /savedArticles/);
+  assert.match(renderer, /seenArticles/);
+  assert.match(renderer, /openArticle\(article\.link\)/);
+});
+
 test("installer offers login startup and removes it on uninstall", () => {
   const installer = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf8");
 

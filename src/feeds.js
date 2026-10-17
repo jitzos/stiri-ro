@@ -303,8 +303,8 @@ async function fetchSource(source) {
   return { sourceId: source.id, articles };
 }
 
-async function fetchAllFeeds() {
-  const settled = await Promise.allSettled(SOURCES.map(fetchSource));
+async function fetchAllFeeds(sources = SOURCES) {
+  const settled = await Promise.allSettled(sources.map(fetchSource));
   const articles = [];
   const errors = [];
 
@@ -313,8 +313,8 @@ async function fetchAllFeeds() {
       articles.push(...result.value.articles);
     } else {
       errors.push({
-        sourceId: SOURCES[index].id,
-        sourceName: SOURCES[index].name,
+        sourceId: sources[index].id,
+        sourceName: sources[index].name,
         message: result.reason?.message || "Feed indisponibil"
       });
     }
