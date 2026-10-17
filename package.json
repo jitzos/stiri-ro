@@ -1,6 +1,6 @@
 {
   "name": "stiri-ro",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Agregator desktop de știri din România",
   "main": "src/main.js",
   "author": "Mihai Hudrea",
@@ -28,6 +28,7 @@
       "package.json"
     ],
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "nsis",

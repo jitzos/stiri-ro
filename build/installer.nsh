@@ -3,17 +3,21 @@
 
 Var StartAtLoginCheckbox
 Var StartAtLoginChoice
+Var ExistingInstall
 
 !macro customPageAfterChangeDir
   Page custom StartAtLoginPageCreate StartAtLoginPageLeave
 !macroend
 
 Function StartAtLoginPageCreate
-  ${If} ${isUpdated}
-    Abort
-  ${EndIf}
   IfSilent 0 +2
     Abort
+
+  StrCpy $ExistingInstall "0"
+  ${If} ${FileExists} "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+    StrCpy $ExistingInstall "1"
+    Abort
+  ${EndIf}
 
   !insertmacro MUI_HEADER_TEXT "Opțiuni de pornire" "Alege cum pornește Știri RO."
   nsDialogs::Create 1018
@@ -36,7 +40,7 @@ Function StartAtLoginPageLeave
 FunctionEnd
 
 !macro customInstall
-  ${IfNot} ${isUpdated}
+  ${If} $ExistingInstall != "1"
     ${IfNot} ${Silent}
       ${If} $StartAtLoginChoice == ${BST_CHECKED}
         WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCT_NAME}" "$\"$INSTDIR\${APP_EXECUTABLE_FILENAME}$\" --hidden"

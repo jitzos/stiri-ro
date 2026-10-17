@@ -12,6 +12,7 @@ test("Windows packaging produces an assisted NSIS installer", () => {
   assert.equal(packageJson.dependencies["electron-updater"].startsWith("^6."), true);
   assert.equal(packageJson.build.nsis.oneClick, false);
   assert.equal(packageJson.build.nsis.include, "build/installer.nsh");
+  assert.equal(packageJson.build.win.icon, "build/icon.ico");
   assert.equal(packageJson.build.win.artifactName, "StiriRO-Setup-${version}.${ext}");
   assert.deepEqual(packageJson.build.publish, [{
     provider: "github",
@@ -47,6 +48,8 @@ test("installer offers login startup and removes it on uninstall", () => {
   const installer = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf8");
 
   assert.match(installer, /Pornește Știri RO când mă conectez la Windows/);
+  assert.match(installer, /FileExists.*APP_EXECUTABLE_FILENAME/);
+  assert.doesNotMatch(installer, /isUpdated/);
   assert.match(installer, /WriteRegStr HKCU .*CurrentVersion\\Run/);
   assert.match(installer, /--hidden/);
   assert.match(installer, /customUnInstall[\s\S]*DeleteRegValue HKCU/);
