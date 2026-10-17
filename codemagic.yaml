@@ -1,0 +1,47 @@
+workflows:
+  ios-sideload:
+    name: iOS unsigned IPA for Sideloadly
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    scripts:
+      - name: Install XcodeGen
+        script: brew install xcodegen
+      - name: Generate Xcode project
+        script: |
+          cd ios
+          xcodegen generate --spec project.yml
+      - name: Build unsigned iPhone app
+        script: |
+          set -e
+          xcodebuild \
+            -project ios/StiriRO.xcodeproj \
+            -scheme StiriRO \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build/ios \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+      - name: Package unsigned IPA
+        script: |
+          set -e
+          APP_PATH=$(find build/ios/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -print -quit)
+          test -n "$APP_PATH"
+          mkdir -p build/ipa/Payload
+          cp -R "$APP_PATH" build/ipa/Payload/
+          cd build/ipa
+          /usr/bin/zip -qry ../StiriRO-unsigned.ipa Payload
+    artifacts:
+      - build/StiriRO-unsigned.ipa
+      - build/ios/Build/Products/Release-iphoneos/*.app
+
