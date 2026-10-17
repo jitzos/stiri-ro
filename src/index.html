@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ro">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; connect-src 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Știri RO</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <nav id="readerToolbar" class="reader-toolbar" aria-label="Navigare articol" hidden>
+      <button id="readerBackButton" class="reader-back" type="button">
+        <span aria-hidden="true">←</span> Înapoi
+      </button>
+      <div class="reader-heading">
+        <strong id="readerTitle"></strong>
+        <span id="readerSource"></span>
+      </div>
+    </nav>
+
+    <header class="masthead">
+      <div>
+        <p class="eyebrow">ACTUALITATE · ROMÂNIA</p>
+        <h1>Știri <span>RO</span> <small>v0.0.1</small></h1>
+      </div>
+      <div class="header-actions">
+        <button id="settingsButton" class="settings-button" type="button" aria-haspopup="dialog">
+          <span aria-hidden="true">⚙</span> Setări
+        </button>
+        <button id="refreshButton" class="refresh-button" type="button">
+          <span aria-hidden="true">↻</span> Actualizează
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section class="controls" aria-label="Filtre">
+        <div class="filter-groups">
+          <div class="filter-group">
+            <span class="filter-label">Surse</span>
+            <div id="sourceFilters" class="filter-buttons"></div>
+          </div>
+          <div class="filter-group">
+            <span class="filter-label">Categorii</span>
+            <div id="categoryFilters" class="filter-buttons"></div>
+          </div>
+        </div>
+        <label class="search">
+          <span class="sr-only">Caută în titluri</span>
+          <input id="searchInput" type="search" placeholder="Caută în titluri…" />
+        </label>
+      </section>
+
+      <section class="feed-heading">
+        <div>
+          <h2 id="feedTitle">Ultimele știri</h2>
+          <p id="statusText" aria-live="polite">Se încarcă fluxurile…</p>
+        </div>
+        <span id="articleCount" class="article-count"></span>
+      </section>
+
+      <div id="errorBanner" class="error-banner" hidden></div>
+      <section id="articleGrid" class="article-grid" aria-live="polite"></section>
+
+      <div id="emptyState" class="empty-state" hidden>
+        <strong>Nu am găsit nicio știre.</strong>
+        <span>Încearcă altă sursă sau alt termen de căutare.</span>
+      </div>
+    </main>
+
+    <dialog id="settingsDialog" class="settings-dialog" aria-labelledby="settingsTitle">
+      <form method="dialog" class="settings-card">
+        <div class="settings-heading">
+          <div>
+            <p class="eyebrow">ȘTIRI RO</p>
+            <h2 id="settingsTitle">Setări</h2>
+          </div>
+          <button class="settings-close" type="submit" aria-label="Închide setările">×</button>
+        </div>
+
+        <label class="setting-row">
+          <span>
+            <strong>Minimizează în tray</strong>
+            <small>Ascunde fereastra și continuă actualizarea la fiecare 5 minute.</small>
+          </span>
+          <input id="trayToggle" type="checkbox" checked />
+        </label>
+
+        <label class="setting-row">
+          <span>
+            <strong>Pornește odată cu Windows</strong>
+            <small id="startupHelp">Aplicația va porni ascunsă în tray după autentificare.</small>
+          </span>
+          <input id="startupToggle" type="checkbox" />
+        </label>
+
+        <section class="update-setting" aria-labelledby="updateTitle">
+          <div>
+            <strong id="updateTitle">Actualizări</strong>
+            <small id="updateStatus" aria-live="polite">Se verifică starea actualizărilor…</small>
+          </div>
+          <button id="updateButton" class="update-button" type="button">Verifică acum</button>
+        </section>
+      </form>
+    </dialog>
+
+    <template id="articleTemplate">
+      <article class="article-card">
+        <button class="card-link" type="button">
+          <div class="image-wrap">
+            <img class="article-image" alt="" loading="lazy" referrerpolicy="no-referrer" />
+            <div class="image-fallback" aria-hidden="true"></div>
+          </div>
+          <div class="article-body">
+            <div class="meta-row">
+              <div class="badges">
+                <span class="source-badge"></span>
+                <span class="category-badge"></span>
+              </div>
+              <time class="published-at"></time>
+            </div>
+            <h3 class="article-title"></h3>
+            <p class="article-excerpt"></p>
+            <span class="read-more">Citește articolul <span aria-hidden="true">→</span></span>
+          </div>
+        </button>
+      </article>
+    </template>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>

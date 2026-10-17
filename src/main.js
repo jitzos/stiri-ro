@@ -1,0 +1,335 @@
+const path = require("node:path");
+const { app, BrowserWindow, ipcMain, Menu, nativeImage, shell, Tray, WebContentsView } = require("electron");
+const { autoUpdater } = require("electron-updater");
+const { SOURCES, CATEGORIES, fetchAllFeeds } = require("./feeds");
+
+const FOREGROUND_REFRESH_MS = 10 * 60 * 1000;
+const TRAY_REFRESH_MS = 5 * 60 * 1000;
+
+let mainWindow = null;
+let tray = null;
+let refreshTimer = null;
+let refreshInFlight = null;
+let latestFeed = null;
+let minimizeToTray = true;
+let isQuitting = false;
+let articleView = null;
+
+const ARTICLE_TOOLBAR_HEIGHT = 58;
+const LOGIN_ARGS = ["--hidden"];
+const startHidden = process.argv.includes("--hidden");
+const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+let updateTimer = null;
+let updateState = {
+  supported: false,
+  phase: "idle",
+  currentVersion: app.getVersion(),
+  availableVersion: null,
+  percent: null,
+  message: "Actualizările sunt disponibile în versiunea instalată."
+};
+
+function publishUpdateState(patch) {
+  updateState = { ...updateState, ...patch };
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("updates:status", updateState);
+  }
+  return updateState;
+}
+
+async function checkForUpdates() {
+  if (!updateState.supported) return updateState;
+  publishUpdateState({ phase: "checking", percent: null, message: "Se caută actualizări…" });
+  try {
+    await autoUpdater.checkForUpdates();
+  } catch {
+    publishUpdateState({ phase: "error", message: "Verificarea actualizărilor nu a reușit." });
+  }
+  return updateState;
+}
+
+function initializeUpdater() {
+  const supported = process.platform === "win32" && app.isPackaged;
+  publishUpdateState({
+    supported,
+    message: supported
+      ? `Versiunea ${app.getVersion()} este instalată.`
+      : "Actualizările sunt disponibile în versiunea instalată pe Windows."
+  });
+  if (!supported) return;
+
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.allowPrerelease = false;
+
+  autoUpdater.on("update-available", (info) => publishUpdateState({
+    phase: "available",
+    availableVersion: info.version,
+    percent: null,
+    message: `Versiunea ${info.version} este disponibilă.`
+  }));
+  autoUpdater.on("update-not-available", () => publishUpdateState({
+    phase: "current",
+    availableVersion: null,
+    percent: null,
+    message: `Versiunea ${app.getVersion()} este la zi.`
+  }));
+  autoUpdater.on("download-progress", (progress) => publishUpdateState({
+    phase: "downloading",
+    percent: Math.round(progress.percent),
+    message: `Se descarcă actualizarea… ${Math.round(progress.percent)}%`
+  }));
+  autoUpdater.on("update-downloaded", (info) => publishUpdateState({
+    phase: "downloaded",
+    availableVersion: info.version,
+    percent: 100,
+    message: `Versiunea ${info.version} este pregătită pentru instalare.`
+  }));
+  autoUpdater.on("error", () => publishUpdateState({
+    phase: "error",
+    percent: null,
+    message: "Actualizarea nu a reușit. Încearcă din nou mai târziu."
+  }));
+
+  setTimeout(() => checkForUpdates(), 12_000);
+  updateTimer = setInterval(() => checkForUpdates(), UPDATE_CHECK_INTERVAL_MS);
+}
+
+function isSafeArticleUrl(url) {
+  try {
+    return ["http:", "https:"].includes(new URL(url).protocol);
+  } catch {
+    return false;
+  }
+}
+
+function layoutArticleView() {
+  if (!articleView || !mainWindow || mainWindow.isDestroyed()) return;
+  const [width, height] = mainWindow.getContentSize();
+  articleView.setBounds({
+    x: 0,
+    y: ARTICLE_TOOLBAR_HEIGHT,
+    width,
+    height: Math.max(0, height - ARTICLE_TOOLBAR_HEIGHT)
+  });
+}
+
+function closeArticleView() {
+  if (!articleView) return;
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.contentView.removeChildView(articleView);
+  if (!articleView.webContents.isDestroyed()) articleView.webContents.close();
+  articleView = null;
+}
+
+async function openArticleView(url) {
+  if (!isSafeArticleUrl(url) || !mainWindow || mainWindow.isDestroyed()) {
+    throw new Error("Adresă invalidă");
+  }
+
+  closeArticleView();
+  articleView = new WebContentsView({
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    }
+  });
+
+  articleView.setBackgroundColor("#f4f1ea");
+  articleView.webContents.setWindowOpenHandler(({ url: nextUrl }) => {
+    if (isSafeArticleUrl(nextUrl)) articleView?.webContents.loadURL(nextUrl).catch(() => {});
+    return { action: "deny" };
+  });
+  articleView.webContents.on("will-navigate", (event, nextUrl) => {
+    if (!isSafeArticleUrl(nextUrl)) event.preventDefault();
+  });
+
+  mainWindow.contentView.addChildView(articleView);
+  layoutArticleView();
+  await articleView.webContents.loadURL(url);
+  return true;
+}
+
+function scheduleRefresh(intervalMs) {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(() => refreshFeeds().catch(() => {}), intervalMs);
+}
+
+function showWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+    return;
+  }
+
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+  scheduleRefresh(FOREGROUND_REFRESH_MS);
+}
+
+async function refreshFeeds() {
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = fetchAllFeeds()
+    .then((result) => {
+      latestFeed = result;
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (!window.isDestroyed()) window.webContents.send("feeds:updated", result);
+      }
+      tray?.setToolTip(`Știri RO · actualizat ${new Date(result.fetchedAt).toLocaleTimeString("ro-RO", { hour: "2-digit", minute: "2-digit" })}`);
+      return result;
+    })
+    .finally(() => {
+      refreshInFlight = null;
+    });
+
+  return refreshInFlight;
+}
+
+function createTray() {
+  const iconPath = path.join(__dirname, "assets", "tray-icon.png");
+  const icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+  tray = new Tray(icon);
+  tray.setToolTip("Știri RO");
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: "Deschide Știri RO", click: showWindow },
+    { label: "Actualizează acum", click: () => refreshFeeds().catch(() => {}) },
+    { type: "separator" },
+    {
+      label: "Ieșire",
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      }
+    }
+  ]));
+  tray.on("click", showWindow);
+}
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 820,
+    minWidth: 820,
+    minHeight: 620,
+    backgroundColor: "#f4f1ea",
+    title: "Știri RO 0.0.1",
+    show: !startHidden,
+    autoHideMenuBar: true,
+    icon: path.join(__dirname, "assets", "tray-icon.png"),
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    }
+  });
+
+  mainWindow.loadFile(path.join(__dirname, "index.html"));
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) shell.openExternal(url);
+    return { action: "deny" };
+  });
+
+  mainWindow.webContents.on("did-finish-load", () => {
+    if (latestFeed) mainWindow.webContents.send("feeds:updated", latestFeed);
+  });
+
+  mainWindow.on("resize", layoutArticleView);
+
+  mainWindow.on("minimize", (event) => {
+    if (!minimizeToTray) return;
+    event.preventDefault();
+    mainWindow.hide();
+    scheduleRefresh(TRAY_REFRESH_MS);
+  });
+
+  mainWindow.on("close", (event) => {
+    if (isQuitting || !minimizeToTray) return;
+    event.preventDefault();
+    mainWindow.hide();
+    scheduleRefresh(TRAY_REFRESH_MS);
+  });
+
+  mainWindow.on("closed", () => {
+    closeArticleView();
+    mainWindow = null;
+  });
+}
+
+ipcMain.handle("feeds:list", () => SOURCES.map(({ feedUrl, ...source }) => source));
+ipcMain.handle("categories:list", () => CATEGORIES);
+ipcMain.handle("feeds:refresh", () => refreshFeeds());
+ipcMain.handle("settings:minimize-to-tray", (_event, enabled) => {
+  minimizeToTray = Boolean(enabled);
+  if (!minimizeToTray || mainWindow?.isVisible()) scheduleRefresh(FOREGROUND_REFRESH_MS);
+  return minimizeToTray;
+});
+ipcMain.handle("settings:get-start-at-login", () => {
+  const supported = process.platform === "win32" && app.isPackaged;
+  return {
+    supported,
+    enabled: supported
+      ? app.getLoginItemSettings({ path: process.execPath, args: LOGIN_ARGS }).openAtLogin
+      : false
+  };
+});
+ipcMain.handle("settings:set-start-at-login", (_event, enabled) => {
+  const supported = process.platform === "win32" && app.isPackaged;
+  if (!supported) return { supported, enabled: false };
+
+  app.setLoginItemSettings({
+    openAtLogin: Boolean(enabled),
+    path: process.execPath,
+    args: LOGIN_ARGS
+  });
+
+  return {
+    supported,
+    enabled: app.getLoginItemSettings({ path: process.execPath, args: LOGIN_ARGS }).openAtLogin
+  };
+});
+ipcMain.handle("updates:get-status", () => updateState);
+ipcMain.handle("updates:check", () => checkForUpdates());
+ipcMain.handle("updates:download", async () => {
+  if (!updateState.supported || updateState.phase !== "available") return updateState;
+  publishUpdateState({ phase: "downloading", percent: 0, message: "Se începe descărcarea…" });
+  try {
+    await autoUpdater.downloadUpdate();
+  } catch {
+    publishUpdateState({ phase: "error", percent: null, message: "Descărcarea actualizării nu a reușit." });
+  }
+  return updateState;
+});
+ipcMain.handle("updates:install", () => {
+  if (!updateState.supported || updateState.phase !== "downloaded") return false;
+  isQuitting = true;
+  autoUpdater.quitAndInstall(false, true);
+  return true;
+});
+ipcMain.handle("article:open", (_event, url) => openArticleView(url));
+ipcMain.handle("article:close", () => {
+  closeArticleView();
+  return true;
+});
+
+app.setAppUserModelId("ro.stiriro.desktop");
+
+app.whenReady().then(() => {
+  createTray();
+  createWindow();
+  scheduleRefresh(startHidden ? TRAY_REFRESH_MS : FOREGROUND_REFRESH_MS);
+  initializeUpdater();
+  app.on("activate", showWindow);
+});
+
+app.on("before-quit", () => {
+  isQuitting = true;
+  if (refreshTimer) clearInterval(refreshTimer);
+  if (updateTimer) clearInterval(updateTimer);
+});
+
+app.on("window-all-closed", () => {
+  if (!minimizeToTray && process.platform !== "darwin") app.quit();
+});

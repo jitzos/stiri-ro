@@ -1,0 +1,67 @@
+{
+  "name": "stiri-ro",
+  "version": "0.0.1",
+  "description": "Agregator desktop de știri din România",
+  "main": "src/main.js",
+  "author": "Mihai Hudrea",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jitzos/stiri-ro.git"
+  },
+  "homepage": "https://github.com/jitzos/stiri-ro",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test",
+    "package:win": "node scripts/build-windows.js"
+  },
+  "build": {
+    "appId": "ro.stiriro.desktop",
+    "productName": "Știri RO",
+    "asar": true,
+    "directories": {
+      "output": "release/installer",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "StiriRO-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true,
+      "include": "build/installer.nsh"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "jitzos",
+        "repo": "stiri-ro",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9",
+    "rss-parser": "^3.13.0"
+  },
+  "devDependencies": {
+    "electron": "^44.9.0",
+    "electron-builder": "^26.15.3"
+  }
+}
