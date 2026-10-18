@@ -13,7 +13,7 @@ const state = {
   minimizeToTray: localStorage.getItem("minimizeToTray") !== "false",
   seen: new Set(readStoredArray("seenArticles")),
   saved: new Map(readStoredArray("savedArticles").filter((article) => article?.id).map((article) => [article.id, article])),
-  unreadOnly: false, savedOnly: false, feedScrollY: 0, weatherForecast: []
+  unreadOnly: false, savedOnly: false, feedScrollY: 0, currentWeather: null, weatherForecast: [], weatherForecastView: "today"
 };
 
 const elements = {
@@ -24,6 +24,8 @@ const elements = {
   weatherTemperature: document.querySelector("#weatherTemperature"), weatherDescription: document.querySelector("#weatherDescription"),
   weatherLocation: document.querySelector("#weatherLocation"), weatherDetails: document.querySelector("#weatherDetails"),
   weatherForecast: document.querySelector("#weatherForecast"), weatherForecastDays: document.querySelector("#weatherForecastDays"),
+  weatherTodayForecast: document.querySelector("#weatherTodayForecast"), todayForecastTab: document.querySelector("#todayForecastTab"),
+  fiveDayForecastTab: document.querySelector("#fiveDayForecastTab"),
   closeWeatherForecast: document.querySelector("#closeWeatherForecastButton"),
   refreshMenu: document.querySelector("#refreshMenu"), refreshNow: document.querySelector("#refreshNowButton"),
   quickRefreshInterval: document.querySelector("#quickRefreshInterval"), quickTrayRefreshInterval: document.querySelector("#quickTrayRefreshInterval"),
@@ -77,6 +79,7 @@ function showWeatherMessage(message) {
   elements.weatherLocation.textContent = state.preferences.weatherLocation?.name || "Locație neconfigurată";
   elements.weatherDetails.textContent = "";
   state.weatherForecast = [];
+  state.currentWeather = null;
   setWeatherForecastOpen(false);
 }
 
@@ -88,9 +91,10 @@ function renderWeather(weather) {
   elements.weatherLocation.textContent = weather.location.name;
   elements.weatherDetails.textContent = `Se simt ${Math.round(weather.feelsLike)}° · vânt ${Math.round(weather.windSpeed)} km/h`;
   state.weatherForecast = Array.isArray(weather.forecast) ? weather.forecast : [];
+  state.currentWeather = weather;
 }
 
-function renderWeatherForecast() {
+function renderFiveDayForecast() {
   elements.weatherForecastDays.replaceChildren();
   if (state.weatherForecast.length === 0) {
     const message = document.createElement("p");
@@ -111,10 +115,52 @@ function renderWeatherForecast() {
   }
 }
 
+function addTodayDetail(container, label, value) {
+  const detail = document.createElement("span"); detail.className = "today-detail";
+  const name = document.createElement("span"); name.textContent = label;
+  const reading = document.createElement("strong"); reading.textContent = value;
+  detail.append(name, reading); container.append(detail);
+}
+
+function renderTodayForecast() {
+  elements.weatherTodayForecast.replaceChildren();
+  const weather = state.currentWeather;
+  if (!weather) {
+    const message = document.createElement("p"); message.className = "forecast-unavailable"; message.textContent = "Prognoza pentru azi nu este disponibilă momentan.";
+    elements.weatherTodayForecast.append(message); return;
+  }
+
+  const today = state.weatherForecast[0];
+  const summary = document.createElement("div"); summary.className = "today-summary";
+  const icon = document.createElement("span"); icon.className = "forecast-icon"; icon.textContent = weather.icon; icon.setAttribute("aria-hidden", "true");
+  const temperature = document.createElement("strong"); temperature.textContent = `${Math.round(weather.temperature)}°C`;
+  const description = document.createElement("span"); description.textContent = weather.description;
+  summary.append(icon, temperature, description);
+  const details = document.createElement("div"); details.className = "today-details";
+  addTodayDetail(details, "Se simt", `${Math.round(weather.feelsLike)}°C`);
+  addTodayDetail(details, "Min / Max", today ? `${Math.round(today.minimum)}° / ${Math.round(today.maximum)}°` : "—");
+  addTodayDetail(details, "Ploaie", today ? `${Math.round(today.precipitationChance)}%` : `${weather.precipitation || 0} mm`);
+  addTodayDetail(details, "Umiditate", `${Math.round(weather.humidity)}%`);
+  addTodayDetail(details, "Vânt", `${Math.round(weather.windSpeed)} km/h`);
+  elements.weatherTodayForecast.append(summary, details);
+}
+
+function setWeatherForecastView(view) {
+  state.weatherForecastView = view;
+  const showToday = view === "today";
+  elements.todayForecastTab.classList.toggle("active", showToday);
+  elements.todayForecastTab.setAttribute("aria-selected", String(showToday));
+  elements.fiveDayForecastTab.classList.toggle("active", !showToday);
+  elements.fiveDayForecastTab.setAttribute("aria-selected", String(!showToday));
+  elements.weatherTodayForecast.hidden = !showToday;
+  elements.weatherForecastDays.hidden = showToday;
+  if (showToday) renderTodayForecast(); else renderFiveDayForecast();
+}
+
 function setWeatherForecastOpen(open) {
   elements.weatherForecast.hidden = !open;
   elements.weatherWidget.setAttribute("aria-expanded", String(open));
-  if (open) renderWeatherForecast();
+  if (open) setWeatherForecastView(state.weatherForecastView);
 }
 
 async function loadWeather(location = state.preferences.weatherLocation) {
@@ -464,6 +510,8 @@ function setRefreshMenuOpen(open) {
 elements.search.addEventListener("input", (event) => { state.query = event.target.value; renderArticles(); });
 elements.weatherWidget.addEventListener("click", () => setWeatherForecastOpen(elements.weatherForecast.hidden));
 elements.closeWeatherForecast.addEventListener("click", () => { setWeatherForecastOpen(false); elements.weatherWidget.focus(); });
+elements.todayForecastTab.addEventListener("click", () => setWeatherForecastView("today"));
+elements.fiveDayForecastTab.addEventListener("click", () => setWeatherForecastView("five-days"));
 elements.refresh.addEventListener("click", () => setRefreshMenuOpen(elements.refreshMenu.hidden));
 elements.refreshNow.addEventListener("click", async () => { setRefreshMenuOpen(false); await refresh(); });
 document.addEventListener("click", (event) => {

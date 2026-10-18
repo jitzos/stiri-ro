@@ -57,6 +57,7 @@ function parseWeatherPayload(payload) {
     },
     temperature: Number(current.temp_C),
     feelsLike: Number(current.FeelsLikeC),
+    precipitation: Number(current.precipMM || 0),
     humidity: Number(current.humidity),
     windSpeed: Number(current.windspeedKmph),
     description,

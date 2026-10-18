@@ -11,6 +11,7 @@ test("weather payload is converted to a Romanian local summary", () => {
   const weather = parseWeatherPayload(payload);
   assert.equal(weather.location.name, "Brașov");
   assert.equal(weather.temperature, 12);
+  assert.equal(weather.precipitation, 0);
   assert.equal(weather.description, "Parțial noros");
   assert.equal(weather.icon, "⛅");
 });

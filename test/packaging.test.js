@@ -130,7 +130,7 @@ test("local weather supports first-run geolocation, manual location and an off s
   const html = fs.readFileSync(path.join(root, "src", "index.html"), "utf8");
   const renderer = fs.readFileSync(path.join(root, "src", "renderer.js"), "utf8");
 
-  for (const id of ["weatherWidget", "weatherForecast", "weatherForecastDays", "weatherEnabledToggle", "automaticWeatherMode", "manualWeatherMode", "useCurrentLocationButton", "manualLocationInput", "saveManualLocationButton"]) {
+  for (const id of ["weatherWidget", "weatherForecast", "todayForecastTab", "fiveDayForecastTab", "weatherTodayForecast", "weatherForecastDays", "weatherEnabledToggle", "automaticWeatherMode", "manualWeatherMode", "useCurrentLocationButton", "manualLocationInput", "saveManualLocationButton"]) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
   assert.match(main, /permission === "geolocation"/);
@@ -142,6 +142,8 @@ test("local weather supports first-run geolocation, manual location and an off s
   assert.match(renderer, /weatherLocationMode !== "manual"/);
   assert.match(renderer, /Intl\.DateTimeFormat\("ro-RO"/);
   assert.match(renderer, /setWeatherForecastOpen/);
+  assert.match(renderer, /setWeatherForecastView/);
+  assert.match(renderer, /addTodayDetail\(details, "Umiditate"/);
   assert.match(main, /fetchForecast/);
 });
 

@@ -88,10 +88,15 @@
           </button>
           <div id="weatherForecast" class="weather-forecast" role="dialog" aria-label="Prognoza meteo pe 5 zile" hidden>
             <div class="forecast-heading">
-              <strong>Prognoza pe 5 zile</strong>
+              <strong>Prognoza meteo</strong>
               <button id="closeWeatherForecastButton" type="button" aria-label="Închide prognoza">×</button>
             </div>
-            <div id="weatherForecastDays" class="forecast-days"></div>
+            <div class="forecast-tabs" role="tablist" aria-label="Perioada prognozei">
+              <button id="todayForecastTab" class="active" type="button" role="tab" aria-selected="true" aria-controls="weatherTodayForecast">Azi</button>
+              <button id="fiveDayForecastTab" type="button" role="tab" aria-selected="false" aria-controls="weatherForecastDays">5 zile</button>
+            </div>
+            <div id="weatherTodayForecast" class="today-forecast" role="tabpanel"></div>
+            <div id="weatherForecastDays" class="forecast-days" role="tabpanel" hidden></div>
           </div>
         </div>
       </section>
