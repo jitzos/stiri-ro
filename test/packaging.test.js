@@ -130,7 +130,7 @@ test("local weather supports first-run geolocation, manual location and an off s
   const html = fs.readFileSync(path.join(root, "src", "index.html"), "utf8");
   const renderer = fs.readFileSync(path.join(root, "src", "renderer.js"), "utf8");
 
-  for (const id of ["weatherWidget", "weatherEnabledToggle", "useCurrentLocationButton", "manualLocationInput", "saveManualLocationButton"]) {
+  for (const id of ["weatherWidget", "weatherEnabledToggle", "automaticWeatherMode", "manualWeatherMode", "useCurrentLocationButton", "manualLocationInput", "saveManualLocationButton"]) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
   assert.match(main, /permission === "geolocation"/);
@@ -138,6 +138,8 @@ test("local weather supports first-run geolocation, manual location and an off s
   assert.match(preload, /weather:get/);
   assert.match(renderer, /navigator\.geolocation\.getCurrentPosition/);
   assert.match(renderer, /weatherLocationRequested/);
+  assert.match(renderer, /weatherLocationMode !== "automatic"/);
+  assert.match(renderer, /weatherLocationMode !== "manual"/);
 });
 
 test("startup is managed only by the app and removed on uninstall", () => {

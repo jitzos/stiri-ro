@@ -28,6 +28,7 @@ const elements = {
   settingsButton: document.querySelector("#settingsButton"), settingsDialog: document.querySelector("#settingsDialog"),
   settingsCard: document.querySelector("#settingsCard"), settingsBackToTop: document.querySelector("#settingsBackToTopButton"),
   weatherEnabledToggle: document.querySelector("#weatherEnabledToggle"), weatherOptions: document.querySelector("#weatherOptions"),
+  automaticWeatherMode: document.querySelector("#automaticWeatherMode"), manualWeatherMode: document.querySelector("#manualWeatherMode"),
   weatherLocationStatus: document.querySelector("#weatherLocationStatus"), useCurrentLocation: document.querySelector("#useCurrentLocationButton"),
   manualLocation: document.querySelector("#manualLocationInput"), saveManualLocation: document.querySelector("#saveManualLocationButton"),
   trayToggle: document.querySelector("#trayToggle"), startupToggle: document.querySelector("#startupToggle"),
@@ -107,7 +108,7 @@ async function saveWeatherResult(weather, mode) {
   await updatePreferences({
     weatherLocationRequested: true,
     weatherLocationMode: mode,
-    weatherLocation: weather.location
+    [mode === "automatic" ? "weatherAutomaticLocation" : "weatherManualLocation"]: weather.location
   });
   renderSettings();
   renderWeather(weather);
@@ -358,8 +359,14 @@ function renderSettings() {
   elements.fontSizeSelect.value = preferences.fontSize;
   elements.densitySelect.value = preferences.density;
   elements.weatherEnabledToggle.checked = preferences.weatherEnabled;
+  elements.automaticWeatherMode.checked = preferences.weatherLocationMode === "automatic";
+  elements.manualWeatherMode.checked = preferences.weatherLocationMode === "manual";
   elements.weatherOptions.classList.toggle("disabled", !preferences.weatherEnabled);
-  for (const control of elements.weatherOptions.querySelectorAll("input, button")) control.disabled = !preferences.weatherEnabled;
+  elements.automaticWeatherMode.disabled = !preferences.weatherEnabled;
+  elements.manualWeatherMode.disabled = !preferences.weatherEnabled;
+  elements.useCurrentLocation.disabled = !preferences.weatherEnabled || preferences.weatherLocationMode !== "automatic";
+  elements.manualLocation.disabled = !preferences.weatherEnabled || preferences.weatherLocationMode !== "manual";
+  elements.saveManualLocation.disabled = !preferences.weatherEnabled || preferences.weatherLocationMode !== "manual";
   elements.weatherLocationStatus.textContent = preferences.weatherLocation
     ? `${preferences.weatherLocationMode === "automatic" ? "Locație detectată" : "Locație aleasă"}: ${preferences.weatherLocation.name}`
     : preferences.weatherLocationRequested ? "Locația nu este disponibilă. Poți încerca din nou sau poți scrie un oraș." : "Locația va fi solicitată la prima utilizare.";
@@ -455,7 +462,21 @@ elements.weatherEnabledToggle.addEventListener("change", async (event) => {
   renderSettings();
   if (!event.target.checked) elements.weatherWidget.hidden = true;
   else if (state.preferences.weatherLocation) loadWeather();
-  else requestAutomaticLocation();
+  else if (state.preferences.weatherLocationMode === "automatic") requestAutomaticLocation();
+  else showWeatherMessage("Scrie localitatea în Setări");
+});
+elements.automaticWeatherMode.addEventListener("change", async () => {
+  if (!elements.automaticWeatherMode.checked) return;
+  await updatePreferences({ weatherLocationMode: "automatic" });
+  renderSettings();
+  if (state.preferences.weatherLocation) loadWeather(); else requestAutomaticLocation();
+});
+elements.manualWeatherMode.addEventListener("change", async () => {
+  if (!elements.manualWeatherMode.checked) return;
+  await updatePreferences({ weatherLocationMode: "manual" });
+  renderSettings();
+  if (state.preferences.weatherLocation) loadWeather(); else showWeatherMessage("Scrie localitatea în Setări");
+  elements.manualLocation.focus();
 });
 elements.useCurrentLocation.addEventListener("click", requestAutomaticLocation);
 elements.saveManualLocation.addEventListener("click", async () => {

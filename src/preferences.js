@@ -50,6 +50,15 @@ function normalizePreferences(input = {}, sourceIds = [], categoryIds = []) {
   for (const id of sourceIds) {
     if (!sourceOrder.includes(id)) sourceOrder.push(id);
   }
+  const weatherLocationMode = WEATHER_LOCATION_MODES.includes(input.weatherLocationMode) ? input.weatherLocationMode : DEFAULT_PREFERENCES.weatherLocationMode;
+  const hasDedicatedWeatherLocations = Object.prototype.hasOwnProperty.call(input, "weatherAutomaticLocation")
+    || Object.prototype.hasOwnProperty.call(input, "weatherManualLocation");
+  const legacyWeatherLocation = validWeatherLocation(input.weatherLocation);
+  const weatherAutomaticLocation = validWeatherLocation(input.weatherAutomaticLocation)
+    || (!hasDedicatedWeatherLocations && weatherLocationMode === "automatic" ? legacyWeatherLocation : null);
+  const weatherManualLocation = validWeatherLocation(input.weatherManualLocation)
+    || (!hasDedicatedWeatherLocations && weatherLocationMode === "manual" ? legacyWeatherLocation : null);
+  const weatherLocation = weatherLocationMode === "automatic" ? weatherAutomaticLocation : weatherManualLocation;
 
   return {
     notificationsEnabled: input.notificationsEnabled !== false,
@@ -75,8 +84,10 @@ function normalizePreferences(input = {}, sourceIds = [], categoryIds = []) {
     density: DENSITIES.includes(input.density) ? input.density : DEFAULT_PREFERENCES.density,
     weatherEnabled: input.weatherEnabled !== false,
     weatherLocationRequested: input.weatherLocationRequested === true,
-    weatherLocationMode: WEATHER_LOCATION_MODES.includes(input.weatherLocationMode) ? input.weatherLocationMode : DEFAULT_PREFERENCES.weatherLocationMode,
-    weatherLocation: validWeatherLocation(input.weatherLocation)
+    weatherLocationMode,
+    weatherAutomaticLocation,
+    weatherManualLocation,
+    weatherLocation
   };
 }
 

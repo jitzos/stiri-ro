@@ -151,6 +151,11 @@
             <input id="weatherEnabledToggle" type="checkbox" checked />
           </label>
           <div id="weatherOptions" class="weather-options">
+            <fieldset class="weather-mode-options">
+              <legend>Sursa locației</legend>
+              <label><input id="automaticWeatherMode" type="radio" name="weatherLocationMode" value="automatic" checked /> Locație automată</label>
+              <label><input id="manualWeatherMode" type="radio" name="weatherLocationMode" value="manual" /> Locație manuală</label>
+            </fieldset>
             <p id="weatherLocationStatus" class="settings-hint">Locația nu a fost încă stabilită.</p>
             <button id="useCurrentLocationButton" class="location-button" type="button">⌖ Folosește locația mea</button>
             <div class="manual-location">

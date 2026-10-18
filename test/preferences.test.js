@@ -34,3 +34,16 @@ test("weather location is persisted only when coordinates are valid", () => {
   const invalid = normalizePreferences({ weatherLocation: { name: "Invalid", latitude: 200, longitude: 20 } }, sourceIds, categoryIds);
   assert.equal(invalid.weatherLocation, null);
 });
+
+test("automatic and manual weather locations are stored independently", () => {
+  const automatic = { name: "Locația curentă", latitude: 44.43, longitude: 26.1 };
+  const manual = { name: "Brașov", latitude: 45.65, longitude: 25.6 };
+  const preferences = normalizePreferences({ weatherLocationMode: "manual", weatherAutomaticLocation: automatic, weatherManualLocation: manual }, sourceIds, categoryIds);
+
+  assert.deepEqual(preferences.weatherAutomaticLocation, automatic);
+  assert.deepEqual(preferences.weatherManualLocation, manual);
+  assert.deepEqual(preferences.weatherLocation, manual);
+
+  const switched = normalizePreferences({ ...preferences, weatherLocationMode: "automatic" }, sourceIds, categoryIds);
+  assert.deepEqual(switched.weatherLocation, automatic);
+});
