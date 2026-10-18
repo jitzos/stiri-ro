@@ -13,6 +13,7 @@ const {
 const { normalizePreferences, orderedSources } = require("./preferences");
 const { fetchForecastBundle, fetchWeather } = require("./weather");
 const { buildDailyDigest, isMutedArticle } = require("./article-utils");
+const { makeSync, parseSync } = require("./sync-utils");
 
 let mainWindow = null;
 let tray = null;
@@ -446,6 +447,38 @@ ipcMain.handle("backup:import", async () => {
     return { ok: false, canceled: false, message: "Fișierul de backup nu este valid." };
   }
 });
+ipcMain.handle("sync:export", async (_event, data) => {
+  const selected = await dialog.showSaveDialog(mainWindow, {
+    title: "Exportă date pentru iPhone",
+    defaultPath: "StiriRO-sync.json",
+    filters: [{ name: "Sincronizare Știri RO", extensions: ["json"] }]
+  });
+  if (selected.canceled || !selected.filePath) return { ok: false, canceled: true };
+  try {
+    const snapshot = makeSync({
+      ...data, followedTopics: preferences.followedTopics,
+      favoriteSourceIDs: preferences.favoriteSourceIds,
+      hiddenSourceIDs: preferences.hiddenSourceIds
+    });
+    fs.writeFileSync(selected.filePath, JSON.stringify(snapshot, null, 2), "utf8");
+    return { ok: true };
+  } catch { return { ok: false, message: "Fișierul nu a putut fi exportat." }; }
+});
+
+ipcMain.handle("sync:import", async () => {
+  const selected = await dialog.showOpenDialog(mainWindow, {
+    title: "Importă date de pe iPhone",
+    properties: ["openFile"],
+    filters: [{ name: "Sincronizare Știri RO", extensions: ["json"] }]
+  });
+  if (selected.canceled || !selected.filePaths[0]) return { ok: false, canceled: true };
+  try {
+    if (fs.statSync(selected.filePaths[0]).size > 10 * 1024 * 1024) throw new Error("Too large");
+    const snapshot = parseSync(fs.readFileSync(selected.filePaths[0], "utf8"));
+    return { ok: true, snapshot };
+  } catch { return { ok: false, message: "Fișierul de sincronizare este invalid." }; }
+});
+
 ipcMain.handle("weather:get", async (_event, location) => {
   try {
     const weather = await fetchWeather(location);
