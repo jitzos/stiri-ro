@@ -22,6 +22,8 @@
   <string>$(MARKETING_VERSION)</string>
   <key>CFBundleVersion</key>
   <string>$(CURRENT_PROJECT_VERSION)</string>
+  <key>NSLocationWhenInUseUsageDescription</key>
+  <string>Știri RO folosește locația doar pentru prognoza meteo și filtrul de știri locale.</string>
   <key>LSRequiresIPhoneOS</key>
   <true/>
   <key>UILaunchScreen</key>
