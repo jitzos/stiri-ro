@@ -6,7 +6,9 @@ const { SOURCES, CATEGORIES, fetchAllFeeds } = require("./feeds");
 const {
   buildNotificationContent,
   collectNewArticles,
-  filterNotificationArticles
+  filterNotificationArticles,
+  isNotificationBatchDue,
+  queueNotificationArticles
 } = require("./notification-utils");
 const { normalizePreferences, orderedSources } = require("./preferences");
 const { fetchForecastBundle, fetchWeather } = require("./weather");
@@ -23,6 +25,7 @@ let articleView = null;
 let feedBaselineReady = false;
 let refreshMode = "foreground";
 const knownArticleIds = new Set();
+let notificationState = { lastSentAt: Date.now(), pendingArticles: [] };
 
 const ARTICLE_TOOLBAR_HEIGHT = 58;
 const LOGIN_ARGS = ["--hidden"];
@@ -63,6 +66,35 @@ function savePreferences(patch) {
   return preferences;
 }
 
+function notificationStatePath() {
+  return path.join(app.getPath("userData"), "notification-state.json");
+}
+
+function loadNotificationState() {
+  const now = Date.now();
+  try {
+    const location = notificationStatePath();
+    if (fs.statSync(location).size > 64 * 1024) throw new Error("Invalid notification state");
+    const stored = JSON.parse(fs.readFileSync(location, "utf8"));
+    return {
+      lastSentAt: Number.isFinite(stored.lastSentAt) && stored.lastSentAt >= 0 && stored.lastSentAt <= now
+        ? stored.lastSentAt : now,
+      pendingArticles: queueNotificationArticles([], Array.isArray(stored.pendingArticles) ? stored.pendingArticles : [])
+    };
+  } catch {
+    return { lastSentAt: now, pendingArticles: [] };
+  }
+}
+
+function persistNotificationState() {
+  try {
+    fs.mkdirSync(path.dirname(notificationStatePath()), { recursive: true });
+    fs.writeFileSync(notificationStatePath(), `${JSON.stringify(notificationState)}\n`, "utf8");
+  } catch {
+    // Notifications remain usable for this session even if persistence fails.
+  }
+}
+
 function loginItemSettings(name = LOGIN_ITEM_NAME) {
   return {
     name,
@@ -94,12 +126,43 @@ function migrateLegacyLoginItem() {
 function notifyAboutNewArticles(articles) {
   const newArticles = collectNewArticles(articles, knownArticleIds, feedBaselineReady);
   feedBaselineReady = true;
-  const notificationArticles = filterNotificationArticles(newArticles.filter((article) => !isMutedArticle(article, preferences.mutedKeywords)), preferences);
-  if (!Notification.isSupported() || notificationArticles.length === 0) return;
 
-  const notification = new Notification(buildNotificationContent(notificationArticles));
+  if (!preferences.notificationsEnabled) {
+    if (notificationState.pendingArticles.length) {
+      notificationState.pendingArticles = [];
+      persistNotificationState();
+    }
+    return;
+  }
+
+  const matching = filterNotificationArticles(
+    newArticles.filter((article) => !isMutedArticle(article, preferences.mutedKeywords)),
+    preferences
+  );
+  if (matching.length) {
+    notificationState.pendingArticles = queueNotificationArticles(notificationState.pendingArticles, matching);
+    persistNotificationState();
+  }
+
+  if (!Notification.isSupported() || !isNotificationBatchDue(notificationState.lastSentAt, preferences)) return;
+  const selected = filterNotificationArticles(
+    notificationState.pendingArticles.filter((article) => !isMutedArticle(article, preferences.mutedKeywords)),
+    preferences
+  );
+  if (!selected.length) {
+    if (notificationState.pendingArticles.length) {
+      notificationState.pendingArticles = [];
+      persistNotificationState();
+    }
+    return;
+  }
+
+  const notification = new Notification(buildNotificationContent(selected));
   notification.on("click", showWindow);
   notification.show();
+  notificationState.lastSentAt = Date.now();
+  notificationState.pendingArticles = [];
+  persistNotificationState();
 }
 
 function publishUpdateState(patch) {
@@ -433,6 +496,10 @@ ipcMain.handle("settings:get-preferences", () => ({
 }));
 ipcMain.handle("settings:update-preferences", (_event, patch) => {
   const updated = savePreferences(patch && typeof patch === "object" ? patch : {});
+  if (!updated.notificationsEnabled && notificationState.pendingArticles.length) {
+    notificationState.pendingArticles = [];
+    persistNotificationState();
+  }
   scheduleRefresh(refreshMode);
   return {
     ...updated,
@@ -477,6 +544,8 @@ if (!hasSingleInstanceLock) {
   app.whenReady().then(() => {
     migrateLegacyLoginItem();
     preferences = loadPreferences();
+    notificationState = loadNotificationState();
+    persistNotificationState();
     refreshMode = startHidden ? "tray" : "foreground";
     session.defaultSession.setPermissionCheckHandler((webContents, permission) => permission === "geolocation" && webContents === mainWindow?.webContents);
     session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
