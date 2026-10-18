@@ -37,6 +37,13 @@ Buildul nu cere certificat Apple deoarece Sideloadly semnează aplicația în mo
 
 Cu un Apple ID gratuit, semnătura expiră de regulă după 7 zile și aplicația trebuie reinstalată. Datele locale pot fi pierdute dacă aplicația este ștearsă înainte de reinstalare.
 
+## Compatibilitate Sideloadly și eroarea bundle_main_missing
+
+Aplicația are numele afișat **Știri RO**, însă numele tehnic al pachetului și executabilului sunt **StiriRO** (fără diacritice), ca să evităm incompatibilități cu parsarea căilor IPA în unele versiuni de Sideloadly.
+Arhiva corectă trebuie să conțină `Payload/StiriRO.app/StiriRO` și `Payload/StiriRO.app/Info.plist`; `CFBundleExecutable` trebuie să fie `StiriRO`.
+Pe macOS, scriptul `scripts/verify-ios-ipa.sh` verifică executabilul Mach-O ARM64, permisiunile și versiunea.
+Dacă Sideloadly continuă să afișeze `bundle_main_missing`, descarcă din nou IPA-ul corectat și asigură-te că nu selectezi o copie mai veche.
+
 ## Verificări înainte de instalare
 
 Verificarea de compilare pentru simulator și testele Node rulează în GitHub Actions pe pull request, fără să creeze release.
