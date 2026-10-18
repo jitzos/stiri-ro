@@ -128,6 +128,9 @@
           <p id="statusText" aria-live="polite">Se încarcă fluxurile…</p>
         </div>
         <div class="feed-actions">
+          <button id="topStoriesButton" class="secondary-button" type="button">★ Top 10</button>
+          <button id="followedTopicsButton" class="secondary-button" type="button"># Subiectele mele</button>
+          <button id="statsButton" class="secondary-button" type="button">▥ Statistici</button>
           <button id="localFilterButton" class="secondary-button" type="button">⌖ Locale</button>
           <button id="savedFilterButton" class="secondary-button" type="button">☆ Salvate</button>
           <button id="unreadFilterButton" class="secondary-button" type="button">Necitite</button>
@@ -284,6 +287,23 @@
           </div>
         </section>
 
+        <section class="settings-section" aria-labelledby="followedTopicsTitle">
+          <h3 id="followedTopicsTitle">Subiectele mele</h3>
+          <label class="setting-field">
+            <span>Subiecte urmărite <small>Separate prin virgulă (maximum 20); de exemplu AI, economie, Cluj.</small></span>
+            <input id="followedTopicsInput" type="text" maxlength="500" placeholder="tehnologie, economie, Cluj" />
+          </label>
+          <button id="saveFollowedTopicsButton" class="secondary-settings-button" type="button">Salvează subiectele</button>
+          <p class="settings-hint">Selecția „Subiectele mele” caută titlurile și descrierile știrilor, fără servicii externe.</p>
+        </section>
+        <section class="settings-section" aria-labelledby="portableSyncTitle">
+          <h3 id="portableSyncTitle">Transfer Windows–iPhone</h3>
+          <p id="syncStatus" class="settings-hint" aria-live="polite">Transfer manual, local, printr-un fișier JSON. Nu este încă sincronizare automată.</p>
+          <div class="settings-button-row">
+            <button id="exportSyncButton" class="location-button" type="button">Exportă pentru iPhone</button>
+            <button id="importSyncButton" class="secondary-settings-button" type="button">Importă de pe iPhone</button>
+          </div>
+        </section>
         <section class="settings-section" aria-labelledby="backupTitle">
           <h3 id="backupTitle">Backup și restaurare</h3>
           <p id="backupStatus" class="settings-hint" aria-live="polite">Exportă setările, articolele salvate, istoricul și starea de citire.</p>
@@ -330,6 +350,16 @@
       </div>
     </dialog>
 
+    <dialog id="statsDialog" class="digest-dialog" aria-labelledby="statsTitle">
+      <div class="digest-card">
+        <div class="settings-heading">
+          <div><p class="eyebrow">DOAR PE DISPOZITIV</p><h2 id="statsTitle">Statistici personale</h2></div>
+          <button id="closeStatsButton" class="settings-close" type="button" aria-label="Închide statisticile">×</button>
+        </div>
+        <p class="digest-subtitle">Statistici pe 30 de zile, bazate doar pe articolele deschise după activarea funcției.</p>
+        <div id="statsContent" class="digest-articles"></div>
+      </div>
+    </dialog>
     <template id="articleTemplate">
       <article class="article-card">
         <button class="save-button" type="button" aria-label="Salvează articolul" title="Salvează articolul">☆</button>
