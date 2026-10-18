@@ -1,6 +1,6 @@
 {
   "name": "stiri-ro",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Agregator desktop de știri din România",
   "main": "src/main.js",
   "author": "Mihai Hudrea",
