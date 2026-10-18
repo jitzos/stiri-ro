@@ -1,0 +1,53 @@
+name: Validate iOS SwiftUI
+on:
+  pull_request:
+    paths:
+      - "ios/**"
+      - "test/**"
+      - "codemagic.yaml"
+      - ".github/workflows/ios-validation.yml"
+  workflow_dispatch:
+
+jobs:
+  ios-compile:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate iOS project
+        run: cd ios && xcodegen generate --spec project.yml
+      - name: Check iOS simulator compilation
+        run: |
+          xcodebuild -project ios/StiriRO.xcodeproj \
+            -scheme StiriRO \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -derivedDataPath build/ios-verify \
+            CODE_SIGNING_ALLOWED=NO build
+      - name: Build unsigned iPhoneOS app (release preflight)
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ios/StiriRO.xcodeproj \
+            -scheme StiriRO \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build/ios-device-verify \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+          APP_PATH=$(find build/ios-device-verify/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -print -quit)
+          test -n "$APP_PATH"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PATH/Info.plist")" = "0.0.9"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install JavaScript dependencies
+        run: npm ci
+      - name: Run JavaScript and structural checks
+        run: npm test

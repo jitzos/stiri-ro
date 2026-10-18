@@ -1,6 +1,22 @@
-# Știri RO pentru iPhone
+# Știri RO pentru iPhone — v0.0.9
 
 Aplicație SwiftUI nativă pentru iOS 16.4 sau mai nou. Proiectul Xcode este generat din `project.yml`, iar `codemagic.yaml` produce o arhivă IPA nesemnată pentru instalare cu Sideloadly.
+
+## Funcții comune cu Windows 0.0.9
+
+- Cele 24 de fluxuri RSS, filtre pe sursă/categorie, căutare, știri salvate și marcaj citit/necitit.
+- Istoric local cu cel mult 2.000 de articole, căutare cu diacritice ignorate și filtrare pe perioadă.
+- Filtru de știri locale după numele localității selectate; potrivire textuală orientativă, nu un motor geografic.
+- Publicații favorite, ascunderea surselor și reordonarea manuală din Setări.
+- Cuvinte-cheie excluse din listă, rezumat și notificări.
+- Rezumat zilnic ne-AI, cu până la 10 articole din ultimele 24 de ore (maximum 2 pe publicație).
+- Prognoză Open-Meteo cu vremea actuală, 24 de ore și următoarele 5 zile, loc automat/manual.
+- Backup și restaurare JSON **în formatul aplicației iOS**. Backupurile Windows nu sunt interschimbabile direct.
+- Cel mult o notificare locală la 6 ore, cu până la 5 titluri, respectând filtrele și orele de liniște.
+- Numărul versiunii este afișat în bara de titlu și în Setări → Despre; versiunea este definită în `project.yml`.
+
+Funcțiile exclusiv Windows (system tray, pornirea odată cu Windows, actualizarea prin instalator NSIS) nu se transferă pe iOS.
+Actualizările iOS necesită un nou IPA și reinstalare prin Sideloadly; publicarea automată Windows nu actualizează iPhone-ul.
 
 ## Build în Codemagic
 
@@ -20,6 +36,11 @@ Buildul nu cere certificat Apple deoarece Sideloadly semnează aplicația în mo
 5. Autorizează profilul din **Settings → General → VPN & Device Management**.
 
 Cu un Apple ID gratuit, semnătura expiră de regulă după 7 zile și aplicația trebuie reinstalată. Datele locale pot fi pierdute dacă aplicația este ștearsă înainte de reinstalare.
+
+## Verificări înainte de instalare
+
+Verificarea de compilare pentru simulator și testele Node rulează în GitHub Actions pe pull request, fără să creeze release.
+Codemagic compilează IPA-ul pentru dispozitiv când rulezi explicit workflow-ul `ios-sideload` pe versiunea dorită.
 
 ## Limitări iOS
 

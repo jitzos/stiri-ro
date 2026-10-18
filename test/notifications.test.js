@@ -4,7 +4,10 @@ const {
   buildNotificationContent,
   collectNewArticles,
   filterNotificationArticles,
-  isQuietTime
+  isNotificationBatchDue,
+  isQuietTime,
+  queueNotificationArticles,
+  NOTIFICATION_INTERVAL_MS
 } = require("../src/notification-utils");
 
 function article(id, title = `Titlul ${id}`) {
@@ -54,6 +57,30 @@ test("notification content summarizes one or multiple new articles", () => {
   });
   assert.deepEqual(buildNotificationContent([article("a", "Prima"), article("b")]), {
     title: "2 știri noi",
-    body: "Prima · și încă 1"
+    body: "Sursa: Prima\nSursa: Titlul b"
   });
+});
+
+test("six-hour notification interval respects quiet hours and enable switch", () => {
+  const preferences = { notificationsEnabled: true, quietHoursEnabled: false };
+  const base = new Date(2026, 9, 18, 12, 0);
+  assert.equal(isNotificationBatchDue(base.getTime(), preferences, new Date(base.getTime() + NOTIFICATION_INTERVAL_MS - 1)), false);
+  assert.equal(isNotificationBatchDue(base.getTime(), preferences, new Date(base.getTime() + NOTIFICATION_INTERVAL_MS)), true);
+  assert.equal(isNotificationBatchDue(base.getTime(), { ...preferences, notificationsEnabled: false }, new Date(base.getTime() + NOTIFICATION_INTERVAL_MS)), false);
+  assert.equal(isNotificationBatchDue(base.getTime(), { ...preferences, quietHoursEnabled: true, quietHoursStart: "18:00", quietHoursEnd: "23:00" }, new Date(base.getTime() + NOTIFICATION_INTERVAL_MS)), false);
+});
+
+test("new stories are collected during quiet hours for a later digest", () => {
+  const preferences = { notificationsEnabled: true, quietHoursEnabled: true, quietHoursStart: "22:00", quietHoursEnd: "08:00", notificationSourceIds: [], notificationCategoryIds: [], notificationKeywords: "" };
+  assert.deepEqual(filterNotificationArticles([article("a")], preferences).map(({ id }) => id), ["a"]);
+});
+
+test("notification batch keeps five newest unique articles across refreshes", () => {
+  const news = (id, offset) => ({ ...article(id), publishedAt: new Date(2026, 9, 18, 12, offset).toISOString() });
+  const first = queueNotificationArticles([], [news("1", 1), news("2", 2), news("3", 3), news("4", 4)]);
+  const second = queueNotificationArticles(first, [news("3", 3), news("5", 5), news("6", 6), news("7", 7)]);
+  assert.deepEqual(second.map(({ id }) => id), ["7", "6", "5", "4", "3"]);
+  const content = buildNotificationContent([...second, news("8", 8)]);
+  assert.equal(content.title, "5 știri noi");
+  assert.equal(content.body.split("\n").length, 5);
 });

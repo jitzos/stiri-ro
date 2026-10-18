@@ -1,4 +1,24 @@
 const MAX_KNOWN_ARTICLES = 2_000;
+const NOTIFICATION_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const MAX_NOTIFICATION_ARTICLES = 5;
+
+function queueNotificationArticles(pending, incoming) {
+  const byId = new Map();
+  for (const article of [...pending, ...incoming]) {
+    if (typeof article?.id === "string" && article.id) byId.set(article.id, article);
+  }
+  const dateOf = (article) => Date.parse(article.publishedAt || "") || 0;
+  return [...byId.values()]
+    .sort((a, b) => dateOf(b) - dateOf(a))
+    .slice(0, MAX_NOTIFICATION_ARTICLES);
+}
+
+function isNotificationBatchDue(lastSentAt, preferences, now = new Date()) {
+  return preferences.notificationsEnabled
+    && !isQuietTime(preferences, now)
+    && Number.isFinite(lastSentAt)
+    && now.getTime() - lastSentAt >= NOTIFICATION_INTERVAL_MS;
+}
 
 function collectNewArticles(articles, knownArticleIds, baselineReady) {
   const newArticles = baselineReady
@@ -14,17 +34,10 @@ function collectNewArticles(articles, knownArticleIds, baselineReady) {
 }
 
 function buildNotificationContent(articles) {
-  if (articles.length === 1) {
-    const article = articles[0];
-    return {
-      title: "Știre nouă",
-      body: `${article.sourceName}: ${article.title}`
-    };
-  }
-
+  const selected = articles.slice(0, MAX_NOTIFICATION_ARTICLES);
   return {
-    title: `${articles.length} știri noi`,
-    body: `${articles[0].title} · și încă ${articles.length - 1}`
+    title: selected.length === 1 ? "Știre nouă" : `${selected.length} știri noi`,
+    body: selected.map((article) => `${article.sourceName}: ${article.title}`).join("\n")
   };
 }
 
@@ -40,7 +53,7 @@ function isQuietTime(preferences, now = new Date()) {
 }
 
 function filterNotificationArticles(articles, preferences) {
-  if (!preferences.notificationsEnabled || isQuietTime(preferences)) return [];
+  if (!preferences.notificationsEnabled) return [];
   const sourceIds = new Set(preferences.notificationSourceIds);
   const categoryIds = new Set(preferences.notificationCategoryIds);
   const keywords = preferences.notificationKeywords
@@ -57,4 +70,13 @@ function filterNotificationArticles(articles, preferences) {
   });
 }
 
-module.exports = { buildNotificationContent, collectNewArticles, filterNotificationArticles, isQuietTime };
+module.exports = {
+  MAX_NOTIFICATION_ARTICLES,
+  NOTIFICATION_INTERVAL_MS,
+  buildNotificationContent,
+  collectNewArticles,
+  filterNotificationArticles,
+  isNotificationBatchDue,
+  isQuietTime,
+  queueNotificationArticles
+};

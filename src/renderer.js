@@ -467,7 +467,7 @@ function updateNotificationControls() {
   for (const input of elements.notificationOptions.querySelectorAll("input")) input.disabled = !enabled;
   elements.notificationsHelp.textContent = !supported
     ? "Notificările nu sunt disponibile pe acest sistem."
-    : enabled ? "Anunță știrile noi după actualizarea fluxurilor." : "Notificările pentru știrile noi sunt oprite.";
+    : enabled ? "Cel mult o notificare la 6 ore, cu maximum 5 articole noi." : "Notificările pentru știrile noi sunt oprite.";
 }
 
 function renderSettings() {

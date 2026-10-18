@@ -1,34 +1,105 @@
 import SwiftUI
+import CoreLocation
 
 struct ContentView: View {
     @EnvironmentObject private var store: NewsStore
+    @StateObject private var locationManager = AppLocationManager()
     @State private var showSettings = false
+    @State private var showDigest = false
+    @State private var showWeather = false
     @State private var selectedArticle: Article?
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                if store.preferences.weatherEnabled { weatherSummary }
                 filters
-                if store.isLoading && store.articles.isEmpty { ProgressView("Se încarcă știrile…").frame(maxHeight: .infinity) }
-                else if store.filteredArticles.isEmpty { emptyState }
-                else { articleList }
+                if store.isLoading && store.articles.isEmpty {
+                    ProgressView("Se încarcă știrile…").frame(maxHeight: .infinity)
+                } else if store.filteredArticles.isEmpty {
+                    emptyState
+                } else {
+                    articleList
+                }
             }
-            .navigationTitle("Știri RO")
+            .navigationTitle("Știri RO · v\(AppVersion.number)")
             .searchable(text: $store.searchText, prompt: "Caută știri")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button { showSettings = true } label: { Image(systemName: "gearshape") }
+                        .accessibilityLabel("Setări")
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { Task { await store.refresh() } } label: {
-                        if store.isLoading { ProgressView() } else { Image(systemName: "arrow.clockwise") }
-                    }.disabled(store.isLoading)
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button { showDigest = true } label: { Image(systemName: "text.book.closed") }
+                        .accessibilityLabel("Rezumatul zilei")
+                    Button {
+                        Task {
+                            await store.refresh()
+                            await store.loadWeather()
+                        }
+                    } label: {
+                        if store.isLoading { ProgressView() }
+                        else { Image(systemName: "arrow.clockwise") }
+                    }
+                    .disabled(store.isLoading)
+                    .accessibilityLabel("Actualizează știrile")
                 }
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
+            .sheet(isPresented: $showDigest) { DigestSheet() }
+            .sheet(isPresented: $showWeather) {
+                if let weather = store.weather { WeatherSheet(report: weather) }
+            }
             .fullScreenCover(item: $selectedArticle) { ArticleReader(article: $0) }
         }
         .dynamicTypeSize(store.preferences.textSize == .small ? .small : store.preferences.textSize == .large ? .xLarge : .large)
+        .onAppear { requestAutomaticLocationIfNeeded() }
+        .onChange(of: store.preferences.weatherEnabled) { _ in requestAutomaticLocationIfNeeded() }
+        .onChange(of: store.preferences.weatherLocationMode) { _ in requestAutomaticLocationIfNeeded() }
+        .onReceive(locationManager.$coordinate) { coordinate in
+            if let coordinate { Task { await store.setAutomaticLocation(coordinate) } }
+        }
+    }
+
+    private func requestAutomaticLocationIfNeeded() {
+        if store.preferences.weatherEnabled && store.preferences.weatherLocationMode == .automatic {
+            locationManager.request()
+        }
+    }
+
+    private var weatherSummary: some View {
+        Button {
+            if store.weather != nil { showWeather = true }
+            else { Task { await store.loadWeather() } }
+        } label: {
+            HStack(spacing: 10) {
+                if let report = store.weather {
+                    Image(systemName: report.symbol).font(.title3).symbolRenderingMode(.multicolor)
+                    VStack(alignment: .leading) {
+                        Text(report.place).font(.subheadline.bold())
+                        Text(report.description).font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Text("\(report.temperature)°C").font(.title3.bold())
+                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+                } else if store.weatherLoading {
+                    ProgressView()
+                    Text("Se încarcă vremea…")
+                } else {
+                    Image(systemName: "cloud.sun")
+                    Text(store.weatherError ?? (store.preferences.weatherLocationMode == .automatic
+                         ? locationManager.errorMessage ?? "Așteptăm locația pentru meteo"
+                         : "Setează localitatea în Setări"))
+                        .font(.caption)
+                    Spacer()
+                    Image(systemName: "arrow.clockwise").font(.caption)
+                }
+            }
+            .padding(.horizontal, 16).padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .background(.thinMaterial)
+        }
+        .buttonStyle(.plain)
     }
 
     private var filters: some View {
@@ -49,27 +120,54 @@ struct ContentView: View {
                     }
                 }.padding(.horizontal)
             }
-            HStack {
-                toggleChip("Salvate", icon: "star.fill", active: store.showSavedOnly) { store.showSavedOnly.toggle() }
-                toggleChip("Necitite", icon: "circle.fill", active: store.showUnreadOnly) { store.showUnreadOnly.toggle() }
-                Spacer()
-                if store.showUnreadOnly { Button("Citește toate") { store.markAllVisibleRead() }.font(.caption) }
-            }.padding(.horizontal)
-        }.padding(.vertical, 8).background(.bar)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack {
+                    toggleChip("Salvate", icon: "star.fill", active: store.showSavedOnly) { store.showSavedOnly.toggle() }
+                    toggleChip("Necitite", icon: "circle.fill", active: store.showUnreadOnly) { store.showUnreadOnly.toggle() }
+                    toggleChip("Istoric", icon: "clock.arrow.circlepath", active: store.showHistoryOnly) { store.showHistoryOnly.toggle() }
+                    toggleChip("Știri locale", icon: "mappin", active: store.showLocalOnly) { store.showLocalOnly.toggle() }
+                    if store.showUnreadOnly {
+                        Button("Marchează citite") { store.markAllVisibleRead() }.font(.caption)
+                    }
+                }.padding(.horizontal)
+            }
+            if store.showHistoryOnly {
+                HStack {
+                    DatePicker("De la", selection: $store.historyStartDate, displayedComponents: .date)
+                    DatePicker("Până la", selection: $store.historyEndDate, displayedComponents: .date)
+                }.font(.caption).padding(.horizontal)
+            }
+            if store.showLocalOnly && store.localPlace.isEmpty {
+                Text("Alege o localitate în Setări → Meteo pentru știrile locale.")
+                    .font(.caption).foregroundStyle(.secondary).padding(.horizontal)
+            }
+        }
+        .padding(.vertical, 8)
+        .background(.bar)
     }
 
     private var articleList: some View {
         List(store.filteredArticles) { article in
-            ArticleRow(article: article, compact: store.preferences.density == .compact, saved: store.savedIDs.contains(article.id), unread: !store.readIDs.contains(article.id)) {
+            ArticleRow(
+                article: article, compact: store.preferences.density == .compact,
+                saved: store.savedIDs.contains(article.id),
+                unread: !store.readIDs.contains(article.id)
+            ) {
                 store.toggleSaved(article)
             }
             .contentShape(Rectangle())
-            .onTapGesture { store.markRead(article); selectedArticle = article }
+            .onTapGesture {
+                store.markRead(article)
+                selectedArticle = article
+            }
             .listRowSeparator(.hidden)
             .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
         }
         .listStyle(.plain)
-        .refreshable { await store.refresh() }
+        .refreshable {
+            await store.refresh()
+            await store.loadWeather()
+        }
     }
 
     private var emptyState: some View {
@@ -79,20 +177,123 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
             Text("Nicio știre").font(.title3.bold())
             Text("Schimbă filtrele sau actualizează fluxul.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(.subheadline).foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding().frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func filterChip(_ text: String, active: Bool, action: @escaping () -> Void) -> some View {
-        Button(text, action: action).buttonStyle(.borderedProminent).tint(active ? .accentColor : .gray.opacity(0.35)).controlSize(.small)
+        Button(text, action: action)
+            .buttonStyle(.borderedProminent)
+            .tint(active ? .accentColor : .gray.opacity(0.35))
+            .controlSize(.small)
     }
 
     private func toggleChip(_ text: String, icon: String, active: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) { Label(text, systemImage: icon) }.buttonStyle(.bordered).tint(active ? .accentColor : .secondary).controlSize(.small)
+        Button(action: action) { Label(text, systemImage: icon) }
+            .buttonStyle(.bordered)
+            .tint(active ? .accentColor : .secondary)
+            .controlSize(.small)
+    }
+}
+
+private struct DigestSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: NewsStore
+    @State private var selectedArticle: Article?
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Text("Selecție din ultimele 24 de ore, maximum două articole per publicație. Sunt prioritizate sursele favorite.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                if store.dailyDigest.isEmpty {
+                    Text("Nu există suficiente știri noi pentru rezumat.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(store.dailyDigest) { article in
+                        Button {
+                            store.markRead(article)
+                            selectedArticle = article
+                        } label: {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(article.sourceName).font(.caption).foregroundStyle(.secondary)
+                                Text(article.title).font(.headline).foregroundStyle(.primary)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Rezumatul zilei")
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Gata") { dismiss() } } }
+            .fullScreenCover(item: $selectedArticle) { ArticleReader(article: $0) }
+        }
+    }
+}
+
+private struct WeatherSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let report: WeatherReport
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    HStack {
+                        Image(systemName: report.symbol).font(.largeTitle).symbolRenderingMode(.multicolor)
+                        VStack(alignment: .leading) {
+                            Text(report.place).font(.title2.bold())
+                            Text(report.description).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text("\(report.temperature)°").font(.largeTitle.bold())
+                    }
+                    HStack {
+                        Label("Resimțite: \(report.feelsLike)°", systemImage: "thermometer.medium")
+                        Spacer()
+                        Label("Umiditate: \(report.humidity)%", systemImage: "humidity")
+                    }.font(.caption)
+                    Label("Vânt: \(report.wind) km/h", systemImage: "wind").font(.caption)
+
+                    Text("Azi — prognoză pe ore").font(.headline)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(report.hours) { hour in
+                                VStack(spacing: 8) {
+                                    Text(String(hour.time.suffix(5))).font(.caption)
+                                    Image(systemName: hour.symbol).symbolRenderingMode(.multicolor)
+                                    Text("\(hour.temperature)°").bold()
+                                    Label("\(hour.rainChance)%", systemImage: "drop")
+                                        .font(.caption2).foregroundStyle(.secondary)
+                                }
+                                .frame(width: 72).padding(.vertical, 10)
+                                .background(.thinMaterial).clipShape(RoundedRectangle(cornerRadius: 12))
+                            }
+                        }
+                    }
+
+                    Text("Următoarele 5 zile").font(.headline)
+                    ForEach(report.days) { day in
+                        HStack {
+                            Image(systemName: day.symbol).symbolRenderingMode(.multicolor).frame(width: 30)
+                            VStack(alignment: .leading) {
+                                Text(day.date).font(.subheadline.bold())
+                                Text(day.description).font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text("\(day.minimum)° / \(day.maximum)°").font(.subheadline)
+                            Label("\(day.rainChance)%", systemImage: "drop").font(.caption)
+                        }
+                        Divider()
+                    }
+                }.padding()
+            }
+            .navigationTitle("Prognoza meteo")
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Gata") { dismiss() } } }
+        }
     }
 }
 
