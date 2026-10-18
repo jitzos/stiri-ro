@@ -114,6 +114,14 @@ test("header refresh button opens synchronized refresh options", () => {
   assert.match(renderer, /quickTrayRefreshInterval\.value = String\(preferences\.trayRefreshIntervalMinutes\)/);
 });
 
+test("masthead is compact and filter groups stay on one horizontal row", () => {
+  const styles = fs.readFileSync(path.join(root, "src", "styles.css"), "utf8");
+
+  assert.match(styles, /\.masthead[\s\S]*padding: 16px/);
+  assert.match(styles, /#sourceFilters,[\s\S]*#categoryFilters[\s\S]*flex-wrap: nowrap/);
+  assert.match(styles, /#sourceFilters,[\s\S]*#categoryFilters[\s\S]*overflow-x: auto/);
+});
+
 test("startup is managed only by the app and removed on uninstall", () => {
   const installer = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf8");
   const main = fs.readFileSync(path.join(root, "src", "main.js"), "utf8");
