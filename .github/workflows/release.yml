@@ -123,6 +123,7 @@ jobs:
           cp -R "$APP_PATH" build/ipa/Payload/
           (cd build/ipa && /usr/bin/zip -qry ../StiriRO-unsigned-${EXPECTED_VERSION}.ipa Payload)
           unzip -t "build/StiriRO-unsigned-${EXPECTED_VERSION}.ipa" >/dev/null
+          bash scripts/verify-ios-ipa.sh "build/StiriRO-unsigned-${EXPECTED_VERSION}.ipa" "$EXPECTED_VERSION"
 
       - name: Attach iOS IPA to GitHub release
         shell: bash
