@@ -27,6 +27,17 @@ Aplicație desktop pentru Windows care adună știrile publicate de 24 de public
 - installer Windows cu pornire opțională la autentificare;
 - actualizări automate prin GitHub Releases.
 
+## Funcții experimentale — branch feature/top-stories-topics-stats-sync
+
+Aceste funcții **nu sunt încă incluse în versiunea 0.0.9 publicată**:
+
+- **Top 10**: selectează până la zece subiecte recente (36 h), combină titluri RSS asemănătoare și favorizează acoperirea din mai multe publicații. Scorul este euristic; **nu este o evaluare editorială independentă și nu garantează că subiectele sunt cele mai importante**.
+- **Subiectele mele**: maximum 20 de expresii, cu potrivire locală în titluri și descrieri (diacritice ignorate).
+- **Statistici personale**: deschiderile articolelor în ultimele 30 de zile, categorii și publicații, calculate din evenimente păstrate doar local. Nu reconstruim retroactiv istoricul de citire.
+- **Transfer Windows–iOS**: în Setări, exportă/importă `StiriRO-sync.json` pentru subiecte urmărite, surse favorite/ascunse, articole salvate, ID-uri citite și evenimente de citire. Fișierul are `app: "StiriRO-sync"` și `formatVersion: 1` pe ambele platforme. Importul **combină** datele (nu le șterge), deci eliminările de favorite ori salvate făcute pe un dispozitiv nu se propagă automat. Transferă fișierul printr-o metodă de încredere și șterge copiile inutile, deoarece conține date personale de citire.
+
+**Limitare:** în această etapă sincronizarea este *manuală*, prin export/import JSON între dispozitive. Sincronizarea automată în cloud, autentificarea și rezolvarea conflictelor necesită un furnizor de stocare aprobat de utilizator și vor fi proiectate separat. Fișierul comun este diferit de backupurile existente Windows/iOS.
+
 ## Dezvoltare
 
 ```bash
