@@ -60,8 +60,8 @@ Din **Setări → Actualizări**, utilizatorul poate verifica, descărca și ins
 Actualizează câmpul `version` din `package.json`, apoi creează și publică un tag cu aceeași versiune:
 
 ```bash
-git tag v0.0.6
-git push origin v0.0.6
+git tag v0.0.7
+git push origin v0.0.7
 ```
 
 Workflow-ul GitHub Actions testează proiectul, construiește installerul Windows și publică automat release-ul și metadatele folosite de updater.
