@@ -55,7 +55,7 @@ class NotificationWorker(context: Context, params: WorkerParameters): CoroutineW
             items.filter { it.id !in known && it.sourceID !in hidden && !NewsLogic.matches(it, muted) }
                 .forEach { merged[it.id] = it.sourceName + ": " + it.title }
             val out = JSONArray()
-            for ((id,headline) in merged.entries.takeLast(5)) out.put(JSONObject().put("id",id).put("headline",headline))
+            for ((id,headline) in merged.entries.toList().takeLast(5)) out.put(JSONObject().put("id",id).put("headline",headline))
             p.edit().putString("notificationKnown", JSONArray((latest + known).distinct().take(2000)).toString())
                 .putString("notificationPending",out.toString()).apply()
             val now = System.currentTimeMillis()
