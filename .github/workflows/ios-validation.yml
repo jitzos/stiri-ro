@@ -25,5 +25,11 @@ jobs:
             -sdk iphonesimulator \
             -derivedDataPath build/ios-verify \
             CODE_SIGNING_ALLOWED=NO build
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install JavaScript dependencies
+        run: npm ci
       - name: Run JavaScript and structural checks
         run: npm test
