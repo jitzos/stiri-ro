@@ -1,0 +1,29 @@
+name: Validate iOS SwiftUI
+on:
+  pull_request:
+    paths:
+      - "ios/**"
+      - "test/**"
+      - "codemagic.yaml"
+      - ".github/workflows/ios-validation.yml"
+  workflow_dispatch:
+
+jobs:
+  ios-compile:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate iOS project
+        run: cd ios && xcodegen generate --spec project.yml
+      - name: Check iOS simulator compilation
+        run: |
+          xcodebuild -project ios/StiriRO.xcodeproj \
+            -scheme StiriRO \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -derivedDataPath build/ios-verify \
+            CODE_SIGNING_ALLOWED=NO build
+      - name: Run JavaScript and structural checks
+        run: npm test
