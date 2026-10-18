@@ -329,8 +329,10 @@ main { padding: 20px clamp(28px, 5vw, 76px) 60px; }
   border-color: var(--accent);
 }
 
+.search-weather { width: min(300px, 32vw); flex: none; display: grid; gap: 9px; }
+.search { display: block; }
 .search input {
-  width: min(280px, 30vw);
+  width: 100%;
   padding: 9px 14px;
   color: var(--text);
   background: var(--surface);
@@ -340,6 +342,45 @@ main { padding: 20px clamp(28px, 5vw, 76px) 60px; }
 }
 
 .search input:focus { border-color: #183c2c; box-shadow: 0 0 0 3px rgba(24, 60, 44, 0.12); }
+
+.weather-widget {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  min-height: 54px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(27, 46, 35, .06);
+}
+
+.weather-widget[hidden] { display: none; }
+.weather-icon { font-size: 27px; line-height: 1; }
+.weather-reading,
+.weather-place { display: grid; min-width: 0; gap: 2px; }
+.weather-reading strong { font-size: 18px; line-height: 1; }
+.weather-reading span,
+.weather-place span { color: var(--muted); font-size: 10px; }
+.weather-place { padding-left: 9px; border-left: 1px solid var(--line-soft); }
+.weather-place strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+
+.weather-options { display: grid; gap: 11px; padding: 0 4px 18px; }
+.weather-options.disabled { opacity: .5; }
+.manual-location { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; }
+.location-button {
+  width: max-content;
+  padding: 8px 12px;
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 750;
+  background: var(--accent);
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.location-button:disabled { cursor: default; opacity: .55; }
 
 .feed-heading { padding: 28px 0 18px; }
 .feed-heading h2 { margin: 0 0 4px; font-family: Georgia, serif; font-size: 29px; }
@@ -506,6 +547,7 @@ main { padding: 20px clamp(28px, 5vw, 76px) 60px; }
   .feed-heading { align-items: flex-start; flex-direction: column; }
   .feed-actions { justify-content: flex-start; }
   .search input { width: 100%; }
+  .search-weather { width: 100%; }
   .filter-group { align-items: flex-start; flex-direction: column; gap: 6px; }
   #sourceFilters,
   #categoryFilters { width: 100%; }

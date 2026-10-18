@@ -20,10 +20,16 @@ const elements = {
   grid: document.querySelector("#articleGrid"), template: document.querySelector("#articleTemplate"),
   filters: document.querySelector("#sourceFilters"), categoryFilters: document.querySelector("#categoryFilters"),
   search: document.querySelector("#searchInput"), refresh: document.querySelector("#refreshButton"),
+  weatherWidget: document.querySelector("#weatherWidget"), weatherIcon: document.querySelector("#weatherIcon"),
+  weatherTemperature: document.querySelector("#weatherTemperature"), weatherDescription: document.querySelector("#weatherDescription"),
+  weatherLocation: document.querySelector("#weatherLocation"), weatherDetails: document.querySelector("#weatherDetails"),
   refreshMenu: document.querySelector("#refreshMenu"), refreshNow: document.querySelector("#refreshNowButton"),
   quickRefreshInterval: document.querySelector("#quickRefreshInterval"), quickTrayRefreshInterval: document.querySelector("#quickTrayRefreshInterval"),
   settingsButton: document.querySelector("#settingsButton"), settingsDialog: document.querySelector("#settingsDialog"),
   settingsCard: document.querySelector("#settingsCard"), settingsBackToTop: document.querySelector("#settingsBackToTopButton"),
+  weatherEnabledToggle: document.querySelector("#weatherEnabledToggle"), weatherOptions: document.querySelector("#weatherOptions"),
+  weatherLocationStatus: document.querySelector("#weatherLocationStatus"), useCurrentLocation: document.querySelector("#useCurrentLocationButton"),
+  manualLocation: document.querySelector("#manualLocationInput"), saveManualLocation: document.querySelector("#saveManualLocationButton"),
   trayToggle: document.querySelector("#trayToggle"), startupToggle: document.querySelector("#startupToggle"),
   startupHelp: document.querySelector("#startupHelp"), notificationsToggle: document.querySelector("#notificationsToggle"),
   notificationsHelp: document.querySelector("#notificationsHelp"), notificationOptions: document.querySelector("#notificationOptions"),
@@ -54,6 +60,88 @@ function updateSettingsBackToTopVisibility() {
 
 function preferredScrollBehavior() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+}
+
+function showWeatherMessage(message) {
+  if (!state.preferences.weatherEnabled) {
+    elements.weatherWidget.hidden = true;
+    return;
+  }
+  elements.weatherWidget.hidden = false;
+  elements.weatherIcon.textContent = "🌤️";
+  elements.weatherTemperature.textContent = "--°C";
+  elements.weatherDescription.textContent = message;
+  elements.weatherLocation.textContent = state.preferences.weatherLocation?.name || "Locație neconfigurată";
+  elements.weatherDetails.textContent = "";
+}
+
+function renderWeather(weather) {
+  elements.weatherWidget.hidden = false;
+  elements.weatherIcon.textContent = weather.icon;
+  elements.weatherTemperature.textContent = `${Math.round(weather.temperature)}°C`;
+  elements.weatherDescription.textContent = weather.description;
+  elements.weatherLocation.textContent = weather.location.name;
+  elements.weatherDetails.textContent = `Se simt ${Math.round(weather.feelsLike)}° · vânt ${Math.round(weather.windSpeed)} km/h`;
+}
+
+async function loadWeather(location = state.preferences.weatherLocation) {
+  if (!state.preferences.weatherEnabled) {
+    elements.weatherWidget.hidden = true;
+    return;
+  }
+  if (!location) {
+    showWeatherMessage("Alege locația din Setări");
+    return;
+  }
+
+  showWeatherMessage("Se încarcă vremea…");
+  const result = await window.newsApi.getWeather(location);
+  if (!result.ok) {
+    showWeatherMessage(result.message);
+    return;
+  }
+  renderWeather(result.weather);
+}
+
+async function saveWeatherResult(weather, mode) {
+  await updatePreferences({
+    weatherLocationRequested: true,
+    weatherLocationMode: mode,
+    weatherLocation: weather.location
+  });
+  renderSettings();
+  renderWeather(weather);
+}
+
+async function requestAutomaticLocation() {
+  await updatePreferences({ weatherLocationRequested: true });
+  renderSettings();
+  showWeatherMessage("Se solicită locația…");
+  if (!navigator.geolocation) {
+    showWeatherMessage("Locația nu este disponibilă. Alege un oraș din Setări.");
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+    const result = await window.newsApi.getWeather({ latitude: coords.latitude, longitude: coords.longitude });
+    if (result.ok) await saveWeatherResult(result.weather, "automatic");
+    else showWeatherMessage(result.message);
+  }, () => {
+    showWeatherMessage("Accesul la locație nu a fost acordat. Alege un oraș din Setări.");
+    renderSettings();
+  }, { enableHighAccuracy: false, timeout: 12_000, maximumAge: 24 * 60 * 60 * 1000 });
+}
+
+function initializeWeather() {
+  if (!state.preferences.weatherEnabled) {
+    elements.weatherWidget.hidden = true;
+  } else if (state.preferences.weatherLocation) {
+    loadWeather();
+  } else if (!state.preferences.weatherLocationRequested) {
+    requestAutomaticLocation();
+  } else {
+    showWeatherMessage("Alege locația din Setări");
+  }
 }
 
 async function closeReader() {
@@ -269,6 +357,12 @@ function renderSettings() {
   elements.themeSelect.value = preferences.theme;
   elements.fontSizeSelect.value = preferences.fontSize;
   elements.densitySelect.value = preferences.density;
+  elements.weatherEnabledToggle.checked = preferences.weatherEnabled;
+  elements.weatherOptions.classList.toggle("disabled", !preferences.weatherEnabled);
+  for (const control of elements.weatherOptions.querySelectorAll("input, button")) control.disabled = !preferences.weatherEnabled;
+  elements.weatherLocationStatus.textContent = preferences.weatherLocation
+    ? `${preferences.weatherLocationMode === "automatic" ? "Locație detectată" : "Locație aleasă"}: ${preferences.weatherLocation.name}`
+    : preferences.weatherLocationRequested ? "Locația nu este disponibilă. Poți încerca din nou sau poți scrie un oraș." : "Locația va fi solicitată la prima utilizare.";
   renderChoiceGrid(elements.notificationSourceOptions, state.sources, preferences.notificationSourceIds, "notificationSourceIds");
   renderChoiceGrid(elements.notificationCategoryOptions, state.categories, preferences.notificationCategoryIds, "notificationCategoryIds");
   updateNotificationControls(); renderSourceManager();
@@ -356,6 +450,34 @@ elements.trayToggle.addEventListener("change", async (event) => {
   state.minimizeToTray = event.target.checked; localStorage.setItem("minimizeToTray", String(state.minimizeToTray));
   await window.newsApi.setMinimizeToTray(state.minimizeToTray);
 });
+elements.weatherEnabledToggle.addEventListener("change", async (event) => {
+  await updatePreferences({ weatherEnabled: event.target.checked });
+  renderSettings();
+  if (!event.target.checked) elements.weatherWidget.hidden = true;
+  else if (state.preferences.weatherLocation) loadWeather();
+  else requestAutomaticLocation();
+});
+elements.useCurrentLocation.addEventListener("click", requestAutomaticLocation);
+elements.saveManualLocation.addEventListener("click", async () => {
+  const query = elements.manualLocation.value.trim();
+  if (!query) {
+    elements.weatherLocationStatus.textContent = "Scrie mai întâi localitatea.";
+    return;
+  }
+  elements.saveManualLocation.disabled = true;
+  elements.weatherLocationStatus.textContent = "Se caută localitatea…";
+  const result = await window.newsApi.getWeather(query);
+  elements.saveManualLocation.disabled = false;
+  if (!result.ok) {
+    elements.weatherLocationStatus.textContent = "Localitatea nu a fost găsită. Încearcă din nou.";
+    return;
+  }
+  elements.manualLocation.value = "";
+  await saveWeatherResult(result.weather, "manual");
+});
+elements.manualLocation.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") { event.preventDefault(); elements.saveManualLocation.click(); }
+});
 elements.startupToggle.addEventListener("change", async (event) => {
   const requested = event.target.checked; elements.startupToggle.disabled = true; elements.startupHelp.textContent = "Se salvează…";
   try {
@@ -393,6 +515,7 @@ async function init() {
   elements.startupToggle.checked = startup.enabled; elements.startupToggle.disabled = !startup.supported;
   if (!startup.supported) elements.startupHelp.textContent = "Opțiunea devine disponibilă în versiunea instalată pe Windows.";
   renderSettings(); window.newsApi.onUpdateStatus(renderUpdateStatus);
+  initializeWeather();
   renderUpdateStatus(await window.newsApi.getUpdateStatus()); window.newsApi.onFeedsUpdated(applyFeedResult);
   renderFilters(); renderCategoryFilters(); await refresh();
 }

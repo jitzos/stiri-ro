@@ -122,6 +122,22 @@ test("masthead is compact and filter groups stay on one horizontal row", () => {
   assert.match(styles, /#sourceFilters,[\s\S]*#categoryFilters[\s\S]*overflow-x: auto/);
 });
 
+test("local weather supports first-run geolocation, manual location and an off switch", () => {
+  const main = fs.readFileSync(path.join(root, "src", "main.js"), "utf8");
+  const preload = fs.readFileSync(path.join(root, "src", "preload.js"), "utf8");
+  const html = fs.readFileSync(path.join(root, "src", "index.html"), "utf8");
+  const renderer = fs.readFileSync(path.join(root, "src", "renderer.js"), "utf8");
+
+  for (const id of ["weatherWidget", "weatherEnabledToggle", "useCurrentLocationButton", "manualLocationInput", "saveManualLocationButton"]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  assert.match(main, /permission === "geolocation"/);
+  assert.match(main, /ipcMain\.handle\("weather:get"/);
+  assert.match(preload, /weather:get/);
+  assert.match(renderer, /navigator\.geolocation\.getCurrentPosition/);
+  assert.match(renderer, /weatherLocationRequested/);
+});
+
 test("startup is managed only by the app and removed on uninstall", () => {
   const installer = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf8");
   const main = fs.readFileSync(path.join(root, "src", "main.js"), "utf8");

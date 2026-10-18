@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld("newsApi", {
   listSources: () => ipcRenderer.invoke("feeds:list"),
   listCategories: () => ipcRenderer.invoke("categories:list"),
   refresh: () => ipcRenderer.invoke("feeds:refresh"),
+  getWeather: (location) => ipcRenderer.invoke("weather:get", location),
   setMinimizeToTray: (enabled) => ipcRenderer.invoke("settings:minimize-to-tray", enabled),
   getStartAtLogin: () => ipcRenderer.invoke("settings:get-start-at-login"),
   setStartAtLogin: (enabled) => ipcRenderer.invoke("settings:set-start-at-login", enabled),

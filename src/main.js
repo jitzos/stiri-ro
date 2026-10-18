@@ -1,6 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
-const { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, shell, Tray, WebContentsView } = require("electron");
+const { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, session, shell, Tray, WebContentsView } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const { SOURCES, CATEGORIES, fetchAllFeeds } = require("./feeds");
 const {
@@ -9,6 +9,7 @@ const {
   filterNotificationArticles
 } = require("./notification-utils");
 const { normalizePreferences, orderedSources } = require("./preferences");
+const { fetchWeather } = require("./weather");
 
 let mainWindow = null;
 let tray = null;
@@ -339,6 +340,13 @@ function createWindow() {
 ipcMain.handle("feeds:list", () => orderedSources(SOURCES, preferences).map(({ feedUrl, ...source }) => source));
 ipcMain.handle("categories:list", () => CATEGORIES);
 ipcMain.handle("feeds:refresh", () => refreshFeeds());
+ipcMain.handle("weather:get", async (_event, location) => {
+  try {
+    return { ok: true, weather: await fetchWeather(location) };
+  } catch {
+    return { ok: false, message: "Vremea nu a putut fi încărcată." };
+  }
+});
 ipcMain.handle("settings:minimize-to-tray", (_event, enabled) => {
   minimizeToTray = Boolean(enabled);
   if (!minimizeToTray || mainWindow?.isVisible()) scheduleRefresh("foreground");
@@ -418,6 +426,10 @@ if (!hasSingleInstanceLock) {
     migrateLegacyLoginItem();
     preferences = loadPreferences();
     refreshMode = startHidden ? "tray" : "foreground";
+    session.defaultSession.setPermissionCheckHandler((webContents, permission) => permission === "geolocation" && webContents === mainWindow?.webContents);
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+      callback(permission === "geolocation" && webContents === mainWindow?.webContents);
+    });
     createTray();
     createWindow();
     scheduleRefresh(refreshMode);

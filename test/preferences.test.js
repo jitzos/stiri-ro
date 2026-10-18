@@ -24,3 +24,13 @@ test("favorite sources are shown first while preserving custom order", () => {
   const preferences = normalizePreferences({ sourceOrder: ["c", "b", "a"], favoriteSourceIds: ["a"] }, sourceIds, categoryIds);
   assert.deepEqual(orderedSources(sources, preferences).map(({ id }) => id), ["a", "c", "b"]);
 });
+
+test("weather location is persisted only when coordinates are valid", () => {
+  const valid = normalizePreferences({ weatherEnabled: true, weatherLocationRequested: true, weatherLocationMode: "manual", weatherLocation: { name: "Cluj-Napoca", latitude: 46.77, longitude: 23.59 } }, sourceIds, categoryIds);
+  assert.equal(valid.weatherLocation.name, "Cluj-Napoca");
+  assert.equal(valid.weatherLocationMode, "manual");
+  assert.equal(valid.weatherLocationRequested, true);
+
+  const invalid = normalizePreferences({ weatherLocation: { name: "Invalid", latitude: 200, longitude: 20 } }, sourceIds, categoryIds);
+  assert.equal(invalid.weatherLocation, null);
+});

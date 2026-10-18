@@ -2,6 +2,7 @@ const REFRESH_INTERVALS = [5, 10, 15, 30, 60];
 const THEMES = ["system", "light", "dark"];
 const FONT_SIZES = ["small", "normal", "large"];
 const DENSITIES = ["compact", "comfortable"];
+const WEATHER_LOCATION_MODES = ["automatic", "manual"];
 
 const DEFAULT_PREFERENCES = Object.freeze({
   notificationsEnabled: true,
@@ -18,7 +19,11 @@ const DEFAULT_PREFERENCES = Object.freeze({
   sourceOrder: [],
   theme: "system",
   fontSize: "normal",
-  density: "comfortable"
+  density: "comfortable",
+  weatherEnabled: true,
+  weatherLocationRequested: false,
+  weatherLocationMode: "automatic",
+  weatherLocation: null
 });
 
 function allowedUnique(values, allowed) {
@@ -28,6 +33,14 @@ function allowedUnique(values, allowed) {
 
 function validTime(value, fallback) {
   return typeof value === "string" && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : fallback;
+}
+
+function validWeatherLocation(value) {
+  const latitude = Number(value?.latitude);
+  const longitude = Number(value?.longitude);
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) return null;
+  const name = typeof value?.name === "string" ? value.name.trim().slice(0, 120) : "";
+  return { name: name || "Locația curentă", latitude, longitude };
 }
 
 function normalizePreferences(input = {}, sourceIds = [], categoryIds = []) {
@@ -59,7 +72,11 @@ function normalizePreferences(input = {}, sourceIds = [], categoryIds = []) {
     sourceOrder,
     theme: THEMES.includes(input.theme) ? input.theme : DEFAULT_PREFERENCES.theme,
     fontSize: FONT_SIZES.includes(input.fontSize) ? input.fontSize : DEFAULT_PREFERENCES.fontSize,
-    density: DENSITIES.includes(input.density) ? input.density : DEFAULT_PREFERENCES.density
+    density: DENSITIES.includes(input.density) ? input.density : DEFAULT_PREFERENCES.density,
+    weatherEnabled: input.weatherEnabled !== false,
+    weatherLocationRequested: input.weatherLocationRequested === true,
+    weatherLocationMode: WEATHER_LOCATION_MODES.includes(input.weatherLocationMode) ? input.weatherLocationMode : DEFAULT_PREFERENCES.weatherLocationMode,
+    weatherLocation: validWeatherLocation(input.weatherLocation)
   };
 }
 
@@ -78,6 +95,7 @@ module.exports = {
   FONT_SIZES,
   REFRESH_INTERVALS,
   THEMES,
+  WEATHER_LOCATION_MODES,
   normalizePreferences,
   orderedSources
 };
