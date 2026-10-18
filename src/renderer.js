@@ -38,15 +38,22 @@ const elements = {
   savedFilter: document.querySelector("#savedFilterButton"), unreadFilter: document.querySelector("#unreadFilterButton"),
   markAllRead: document.querySelector("#markAllReadButton"), readerToolbar: document.querySelector("#readerToolbar"),
   readerBack: document.querySelector("#readerBackButton"), readerTitle: document.querySelector("#readerTitle"),
-  readerSource: document.querySelector("#readerSource")
+  readerSource: document.querySelector("#readerSource"), backToTop: document.querySelector("#backToTopButton")
 };
+
+function updateBackToTopVisibility() {
+  elements.backToTop.hidden = document.body.classList.contains("reader-open") || window.scrollY < 500;
+}
 
 async function closeReader() {
   await window.newsApi.closeArticle();
   document.body.classList.remove("reader-open");
   elements.readerToolbar.hidden = true;
   renderArticles();
-  requestAnimationFrame(() => window.scrollTo(0, state.feedScrollY));
+  requestAnimationFrame(() => {
+    window.scrollTo(0, state.feedScrollY);
+    updateBackToTopVisibility();
+  });
 }
 
 async function openReader(article) {
@@ -55,6 +62,7 @@ async function openReader(article) {
   elements.readerSource.textContent = article.sourceName;
   elements.readerToolbar.hidden = false;
   document.body.classList.add("reader-open");
+  updateBackToTopVisibility();
   try {
     await window.newsApi.openArticle(article.link);
   } catch {
@@ -306,6 +314,11 @@ elements.refresh.addEventListener("click", refresh);
 elements.settingsButton.addEventListener("click", () => elements.settingsDialog.showModal());
 elements.settingsDialog.addEventListener("click", (event) => { if (event.target === elements.settingsDialog) elements.settingsDialog.close(); });
 elements.readerBack.addEventListener("click", closeReader);
+elements.backToTop.addEventListener("click", () => {
+  const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+  window.scrollTo({ top: 0, behavior });
+});
+window.addEventListener("scroll", updateBackToTopVisibility, { passive: true });
 elements.savedFilter.addEventListener("click", () => { state.savedOnly = !state.savedOnly; renderArticles(); });
 elements.unreadFilter.addEventListener("click", () => { state.unreadOnly = !state.unreadOnly; renderArticles(); });
 elements.markAllRead.addEventListener("click", () => { for (const article of filteredArticles()) state.seen.add(article.id); saveSeen(); renderArticles(); });

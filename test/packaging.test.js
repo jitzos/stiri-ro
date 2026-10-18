@@ -79,6 +79,17 @@ test("reader settings include refresh, sources, saved articles, unread and appea
   assert.match(renderer, /openArticle\(article\.link\)/);
 });
 
+test("feed includes a Romanian back-to-top control", () => {
+  const html = fs.readFileSync(path.join(root, "src", "index.html"), "utf8");
+  const renderer = fs.readFileSync(path.join(root, "src", "renderer.js"), "utf8");
+  const styles = fs.readFileSync(path.join(root, "src", "styles.css"), "utf8");
+
+  assert.match(html, /id="backToTopButton"[\s\S]*Înapoi sus/);
+  assert.match(renderer, /window\.scrollTo\(\{ top: 0, behavior \}\)/);
+  assert.match(renderer, /prefers-reduced-motion/);
+  assert.match(styles, /\.back-to-top[\s\S]*position: fixed/);
+});
+
 test("startup is managed only by the app and removed on uninstall", () => {
   const installer = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf8");
   const main = fs.readFileSync(path.join(root, "src", "main.js"), "utf8");
