@@ -37,8 +37,8 @@ enum WeatherError: LocalizedError {
     case noLocation, invalidResponse
     var errorDescription: String? {
         switch self {
-        case .noLocation: "Localitatea nu a fost găsită."
-        case .invalidResponse: "Prognoza meteo nu este disponibilă."
+        case .noLocation: return "Localitatea nu a fost găsită."
+        case .invalidResponse: return "Prognoza meteo nu este disponibilă."
         }
     }
 }
@@ -144,15 +144,15 @@ actor WeatherService {
 
     private static func condition(_ code: Int) -> (String, String) {
         switch code {
-        case 0: ("Senin", "sun.max.fill")
-        case 1, 2: ("Parțial noros", "cloud.sun.fill")
-        case 3: ("Înnorat", "cloud.fill")
-        case 45, 48: ("Ceață", "cloud.fog.fill")
-        case 51...57: ("Burniță", "cloud.drizzle.fill")
-        case 61...67, 80...82: ("Ploaie", "cloud.rain.fill")
-        case 71...77, 85, 86: ("Ninsoare", "cloud.snow.fill")
-        case 95...99: ("Furtună", "cloud.bolt.rain.fill")
-        default: ("Vreme variabilă", "cloud.sun.fill")
+        case 0: return ("Senin", "sun.max.fill")
+        case 1, 2: return ("Parțial noros", "cloud.sun.fill")
+        case 3: return ("Înnorat", "cloud.fill")
+        case 45, 48: return ("Ceață", "cloud.fog.fill")
+        case 51...57: return ("Burniță", "cloud.drizzle.fill")
+        case 61...67, 80...82: return ("Ploaie", "cloud.rain.fill")
+        case 71...77, 85, 86: return ("Ninsoare", "cloud.snow.fill")
+        case 95...99: return ("Furtună", "cloud.bolt.rain.fill")
+        default: return ("Vreme variabilă", "cloud.sun.fill")
         }
     }
 }
