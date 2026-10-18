@@ -45,6 +45,21 @@ enum CardDensity: String, Codable, CaseIterable, Identifiable {
     var label: String { self == .compact ? "Compactă" : "Confortabilă" }
 }
 
+enum WeatherLocationMode: String, Codable, CaseIterable, Identifiable {
+    case automatic, manual
+    var id: String { rawValue }
+    var label: String { self == .automatic ? "Automată" : "Manuală" }
+}
+
+enum AppVersion {
+    static var number: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.8"
+    }
+    static var build: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "8"
+    }
+}
+
 struct Preferences: Codable, Equatable {
     var notificationsEnabled = true
     var notificationSourceIDs: Set<String> = []
@@ -56,12 +71,56 @@ struct Preferences: Codable, Equatable {
     var refreshMinutes = 15
     var hiddenSourceIDs: Set<String> = []
     var favoriteSourceIDs: Set<String> = []
+    var sourceOrder: [String] = []
+    var mutedKeywords: [String] = []
+    var weatherEnabled = true
+    var weatherLocationMode = WeatherLocationMode.automatic
+    var weatherManualCity = ""
+    var weatherAutomaticLatitude: Double?
+    var weatherAutomaticLongitude: Double?
+    var weatherAutomaticName = ""
     var theme = AppTheme.system
     var textSize = TextSize.normal
     var density = CardDensity.comfortable
 
     var colorScheme: ColorScheme? {
         switch theme { case .system: nil; case .light: .light; case .dark: .dark }
+    }
+
+    // Decode older installed preferences without losing the user's choices when a new field is added.
+    init() {}
+    enum CodingKeys: String, CodingKey {
+        case notificationsEnabled, notificationSourceIDs, notificationCategoryIDs, notificationKeywords
+        case quietHoursEnabled, quietHoursStart, quietHoursEnd, refreshMinutes
+        case hiddenSourceIDs, favoriteSourceIDs, sourceOrder, mutedKeywords
+        case weatherEnabled, weatherLocationMode, weatherManualCity
+        case weatherAutomaticLatitude, weatherAutomaticLongitude, weatherAutomaticName
+        case theme, textSize, density
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        notificationsEnabled = try c.decodeIfPresent(Bool.self, forKey: .notificationsEnabled) ?? true
+        notificationSourceIDs = try c.decodeIfPresent(Set<String>.self, forKey: .notificationSourceIDs) ?? []
+        notificationCategoryIDs = try c.decodeIfPresent(Set<String>.self, forKey: .notificationCategoryIDs) ?? []
+        notificationKeywords = try c.decodeIfPresent(String.self, forKey: .notificationKeywords) ?? ""
+        quietHoursEnabled = try c.decodeIfPresent(Bool.self, forKey: .quietHoursEnabled) ?? false
+        quietHoursStart = try c.decodeIfPresent(Int.self, forKey: .quietHoursStart) ?? 22
+        quietHoursEnd = try c.decodeIfPresent(Int.self, forKey: .quietHoursEnd) ?? 8
+        refreshMinutes = try c.decodeIfPresent(Int.self, forKey: .refreshMinutes) ?? 15
+        hiddenSourceIDs = try c.decodeIfPresent(Set<String>.self, forKey: .hiddenSourceIDs) ?? []
+        favoriteSourceIDs = try c.decodeIfPresent(Set<String>.self, forKey: .favoriteSourceIDs) ?? []
+        sourceOrder = try c.decodeIfPresent([String].self, forKey: .sourceOrder) ?? []
+        mutedKeywords = try c.decodeIfPresent([String].self, forKey: .mutedKeywords) ?? []
+        weatherEnabled = try c.decodeIfPresent(Bool.self, forKey: .weatherEnabled) ?? true
+        weatherLocationMode = try c.decodeIfPresent(WeatherLocationMode.self, forKey: .weatherLocationMode) ?? .automatic
+        weatherManualCity = try c.decodeIfPresent(String.self, forKey: .weatherManualCity) ?? ""
+        weatherAutomaticLatitude = try c.decodeIfPresent(Double.self, forKey: .weatherAutomaticLatitude)
+        weatherAutomaticLongitude = try c.decodeIfPresent(Double.self, forKey: .weatherAutomaticLongitude)
+        weatherAutomaticName = try c.decodeIfPresent(String.self, forKey: .weatherAutomaticName) ?? ""
+        theme = try c.decodeIfPresent(AppTheme.self, forKey: .theme) ?? .system
+        textSize = try c.decodeIfPresent(TextSize.self, forKey: .textSize) ?? .normal
+        density = try c.decodeIfPresent(CardDensity.self, forKey: .density) ?? .comfortable
     }
 }
 
