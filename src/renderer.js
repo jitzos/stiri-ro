@@ -15,7 +15,7 @@ const state = {
   saved: new Map(readStoredArray("savedArticles").filter((article) => article?.id).map((article) => [article.id, article])),
   history: new Map(readStoredArray("articleHistory").filter((article) => article?.id).map((article) => [article.id, article])),
   unreadOnly: false, savedOnly: false, localOnly: false, historySearch: false, dateRange: "all", readingStatus: "all",
-  feedScrollY: 0, currentWeather: null, weatherForecast: [], weatherForecastView: "today"
+  feedScrollY: 0, currentWeather: null, weatherForecast: [], hourlyWeatherForecast: [], weatherForecastView: "today"
 };
 
 const elements = {
@@ -88,6 +88,7 @@ function showWeatherMessage(message) {
   elements.weatherLocation.textContent = state.preferences.weatherLocation?.name || "Locație neconfigurată";
   elements.weatherDetails.textContent = "";
   state.weatherForecast = [];
+  state.hourlyWeatherForecast = [];
   state.currentWeather = null;
   setWeatherForecastOpen(false);
 }
@@ -100,6 +101,7 @@ function renderWeather(weather) {
   elements.weatherLocation.textContent = weather.location.name;
   elements.weatherDetails.textContent = `Se simt ${Math.round(weather.feelsLike)}° · vânt ${Math.round(weather.windSpeed)} km/h`;
   state.weatherForecast = Array.isArray(weather.forecast) ? weather.forecast : [];
+  state.hourlyWeatherForecast = Array.isArray(weather.hourlyForecast) ? weather.hourlyForecast : [];
   state.currentWeather = weather;
 }
 
@@ -151,7 +153,25 @@ function renderTodayForecast() {
   addTodayDetail(details, "Ploaie", today ? `${Math.round(today.precipitationChance)}%` : `${weather.precipitation || 0} mm`);
   addTodayDetail(details, "Umiditate", `${Math.round(weather.humidity)}%`);
   addTodayDetail(details, "Vânt", `${Math.round(weather.windSpeed)} km/h`);
-  elements.weatherTodayForecast.append(summary, details);
+
+  const hourlySection = document.createElement("section"); hourlySection.className = "today-hourly";
+  const hourlyTitle = document.createElement("h3"); hourlyTitle.textContent = "Prognoza pe ore";
+  const hourlyList = document.createElement("div"); hourlyList.className = "hourly-forecast"; hourlyList.setAttribute("aria-label", "Prognoza meteo pe ore pentru azi");
+  if (state.hourlyWeatherForecast.length === 0) {
+    const message = document.createElement("p"); message.className = "forecast-unavailable"; message.textContent = "Prognoza pe ore nu este disponibilă momentan.";
+    hourlyList.append(message);
+  } else {
+    for (const hour of state.hourlyWeatherForecast) {
+      const item = document.createElement("article"); item.className = "forecast-hour"; item.title = hour.description;
+      const time = document.createElement("time"); time.dateTime = hour.time; time.textContent = hour.time.slice(11, 16);
+      const hourIcon = document.createElement("span"); hourIcon.className = "forecast-icon"; hourIcon.textContent = hour.icon; hourIcon.setAttribute("aria-hidden", "true");
+      const hourTemperature = document.createElement("strong"); hourTemperature.textContent = `${Math.round(hour.temperature)}°`;
+      const rain = document.createElement("small"); rain.textContent = `💧 ${Math.round(hour.precipitationChance)}%`;
+      item.append(time, hourIcon, hourTemperature, rain); hourlyList.append(item);
+    }
+  }
+  hourlySection.append(hourlyTitle, hourlyList);
+  elements.weatherTodayForecast.append(summary, details, hourlySection);
 }
 
 function setWeatherForecastView(view) {

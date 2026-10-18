@@ -9,7 +9,7 @@ const {
   filterNotificationArticles
 } = require("./notification-utils");
 const { normalizePreferences, orderedSources } = require("./preferences");
-const { fetchForecast, fetchWeather } = require("./weather");
+const { fetchForecastBundle, fetchWeather } = require("./weather");
 const { buildDailyDigest, isMutedArticle } = require("./article-utils");
 
 let mainWindow = null;
@@ -387,9 +387,12 @@ ipcMain.handle("weather:get", async (_event, location) => {
   try {
     const weather = await fetchWeather(location);
     try {
-      weather.forecast = await fetchForecast(weather.location);
+      const forecasts = await fetchForecastBundle(weather.location);
+      weather.forecast = forecasts.forecast;
+      weather.hourlyForecast = forecasts.hourlyForecast;
     } catch {
       weather.forecast = [];
+      weather.hourlyForecast = [];
     }
     return { ok: true, weather };
   } catch {

@@ -154,7 +154,9 @@ test("local weather supports first-run geolocation, manual location and an off s
   assert.match(renderer, /setWeatherForecastOpen/);
   assert.match(renderer, /setWeatherForecastView/);
   assert.match(renderer, /addTodayDetail\(details, "Umiditate"/);
-  assert.match(main, /fetchForecast/);
+  assert.match(renderer, /Prognoza pe ore/);
+  assert.match(renderer, /hourlyWeatherForecast/);
+  assert.match(main, /fetchForecastBundle/);
 });
 
 test("reader includes local news, history search, muted topics, backup, shortcuts and daily digest", () => {

@@ -415,6 +415,16 @@ main { padding: 20px clamp(28px, 5vw, 76px) 60px; }
 .today-detail { display: grid; gap: 2px; padding: 8px; background: var(--surface-soft); border-radius: 7px; }
 .today-detail span { color: var(--muted); font-size: 9px; font-weight: 750; text-transform: uppercase; }
 .today-detail strong { font-size: 12px; }
+.today-hourly { grid-column: 1 / -1; min-width: 0; padding-top: 4px; }
+.today-hourly h3 { margin: 0 0 8px; font-size: 12px; }
+.hourly-forecast { display: grid; grid-auto-flow: column; grid-auto-columns: 70px; gap: 7px; overflow-x: auto; padding: 0 1px 7px; scrollbar-color: #87958c transparent; scrollbar-width: thin; }
+.hourly-forecast::-webkit-scrollbar { height: 6px; }
+.hourly-forecast::-webkit-scrollbar-thumb { background: #87958c; border-radius: 999px; }
+.forecast-hour { display: grid; justify-items: center; gap: 3px; padding: 8px 4px; background: var(--surface-soft); border-radius: 8px; text-align: center; }
+.forecast-hour time { color: var(--muted); font-size: 10px; font-weight: 800; }
+.forecast-hour .forecast-icon { font-size: 20px; }
+.forecast-hour strong { font-size: 13px; }
+.forecast-hour small { color: var(--muted); font-size: 9px; }
 .forecast-days { display: grid; grid-template-columns: repeat(5, minmax(76px, 1fr)); gap: 7px; }
 .forecast-days[hidden],
 .today-forecast[hidden] { display: none; }

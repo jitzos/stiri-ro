@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { describeForecastWeather, describeWeather, fetchForecast, fetchWeather, parseForecastPayload, parseWeatherPayload } = require("../src/weather");
+const { describeForecastWeather, describeWeather, fetchForecast, fetchForecastBundle, fetchWeather, parseForecastPayload, parseHourlyForecastPayload, parseWeatherPayload } = require("../src/weather");
 
 const payload = {
   current_condition: [{ temp_C: "12", FeelsLikeC: "10", humidity: "74", windspeedKmph: "9", weatherCode: "116", localObsDateTime: "2026-10-18 11:00 AM" }],
@@ -40,6 +40,12 @@ test("five-day forecast is normalized with Romanian descriptions", async () => {
       temperature_2m_min: [3, 4, 5, -1, 2],
       temperature_2m_max: [10, 11, 9, 4, 7],
       precipitation_probability_max: [0, 10, 70, 60, 80]
+    },
+    hourly: {
+      time: Array.from({ length: 24 }, (_, hour) => `2026-10-18T${String(hour).padStart(2, "0")}:00`),
+      weather_code: Array(24).fill(2),
+      temperature_2m: Array.from({ length: 24 }, (_, hour) => hour - 2),
+      precipitation_probability: Array.from({ length: 24 }, (_, hour) => hour)
     }
   };
   let requestedUrl;
@@ -52,6 +58,12 @@ test("five-day forecast is normalized with Romanian descriptions", async () => {
   assert.deepEqual(forecast[0], { date: "2026-10-18", minimum: 3, maximum: 10, precipitationChance: 0, description: "Senin", icon: "☀️" });
   assert.equal(forecast[4].description, "Furtună");
   assert.match(requestedUrl, /forecast_days=5/);
+  assert.match(requestedUrl, /hourly=weather_code%2Ctemperature_2m%2Cprecipitation_probability/);
   assert.deepEqual(describeForecastWeather(71), ["Ninsoare", "❄️"]);
   assert.equal(parseForecastPayload(forecastPayload).length, 5);
+  assert.equal(parseHourlyForecastPayload(forecastPayload).length, 24);
+
+  const bundle = await fetchForecastBundle({ latitude: 45.65, longitude: 25.6 }, async () => ({ ok: true, json: async () => forecastPayload }));
+  assert.equal(bundle.forecast.length, 5);
+  assert.deepEqual(bundle.hourlyForecast[6], { time: "2026-10-18T06:00", temperature: 4, precipitationChance: 6, description: "Parțial noros", icon: "⛅" });
 });

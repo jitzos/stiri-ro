@@ -102,7 +102,29 @@ function parseForecastPayload(payload) {
   });
 }
 
-async function fetchForecast(location, fetchImplementation = fetch) {
+function parseHourlyForecastPayload(payload) {
+  const hourly = payload?.hourly;
+  const today = payload?.daily?.time?.[0] || hourly?.time?.[0]?.slice(0, 10);
+  if (!today || !Array.isArray(hourly?.time)) throw new Error("Prognoză orară invalidă");
+
+  const hours = [];
+  for (let index = 0; index < hourly.time.length && hours.length < 24; index += 1) {
+    const time = hourly.time[index];
+    if (typeof time !== "string" || !time.startsWith(`${today}T`)) continue;
+    const [description, icon] = describeForecastWeather(hourly.weather_code?.[index]);
+    hours.push({
+      time,
+      temperature: Number(hourly.temperature_2m?.[index]),
+      precipitationChance: Number(hourly.precipitation_probability?.[index]),
+      description,
+      icon
+    });
+  }
+  if (hours.length === 0) throw new Error("Prognoză orară invalidă");
+  return hours;
+}
+
+async function fetchForecastBundle(location, fetchImplementation = fetch) {
   const latitude = Number(location?.latitude);
   const longitude = Number(location?.longitude);
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) throw new Error("Coordonate invalide");
@@ -111,11 +133,20 @@ async function fetchForecast(location, fetchImplementation = fetch) {
   url.searchParams.set("latitude", String(latitude));
   url.searchParams.set("longitude", String(longitude));
   url.searchParams.set("daily", "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max");
+  url.searchParams.set("hourly", "weather_code,temperature_2m,precipitation_probability");
   url.searchParams.set("timezone", "auto");
   url.searchParams.set("forecast_days", "5");
   const response = await fetchImplementation(url, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(15_000) });
   if (!response.ok) throw new Error(`Serviciul de prognoză a răspuns cu ${response.status}`);
-  return parseForecastPayload(await response.json());
+  const payload = await response.json();
+  return {
+    forecast: parseForecastPayload(payload),
+    hourlyForecast: parseHourlyForecastPayload(payload)
+  };
 }
 
-module.exports = { describeForecastWeather, describeWeather, fetchForecast, fetchWeather, parseForecastPayload, parseWeatherPayload };
+async function fetchForecast(location, fetchImplementation = fetch) {
+  return (await fetchForecastBundle(location, fetchImplementation)).forecast;
+}
+
+module.exports = { describeForecastWeather, describeWeather, fetchForecast, fetchForecastBundle, fetchWeather, parseForecastPayload, parseHourlyForecastPayload, parseWeatherPayload };
