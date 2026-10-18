@@ -61,7 +61,7 @@ final class NewsStore: ObservableObject {
     }
 
     var visibleSources: [NewsSource] {
-        let order = Dictionary(uniqueKeysWithValues: preferences.sourceOrder.enumerated().map { ($0.element, $0.offset) })
+        let order = Dictionary(preferences.sourceOrder.enumerated().map { ($0.element, $0.offset) }, uniquingKeysWith: { first, _ in first })
         return Catalog.sources.filter { !preferences.hiddenSourceIDs.contains($0.id) }.sorted {
             let left = preferences.favoriteSourceIDs.contains($0.id)
             let right = preferences.favoriteSourceIDs.contains($1.id)
@@ -101,6 +101,7 @@ final class NewsStore: ObservableObject {
         let source = showHistoryOnly || showSavedOnly ? articleHistory : articles
         return source.filter { article in
             if isMuted(article) { return false }
+            if preferences.hiddenSourceIDs.contains(article.sourceID) { return false }
             if showHistoryOnly {
                 let calendar = Calendar.current
                 guard let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: historyEndDate)) else { return false }
@@ -275,7 +276,9 @@ final class NewsStore: ObservableObject {
         preferences = backup.preferences
         savedIDs = Set(backup.savedIDs.prefix(500))
         readIDs = Set(backup.readIDs.prefix(2_000))
-        articleHistory = Array(backup.articleHistory.sorted { $0.publishedAt > $1.publishedAt }.prefix(2_000))
+        articleHistory = Array(backup.articleHistory.filter {
+            !$0.id.isEmpty && ["http", "https"].contains($0.link.scheme?.lowercased() ?? "")
+        }.sorted { $0.publishedAt > $1.publishedAt }.prefix(2_000))
         UserDefaults.standard.set(Array(savedIDs), forKey: "savedIDs")
         UserDefaults.standard.set(Array(readIDs), forKey: "readIDs")
         persist()
