@@ -162,6 +162,7 @@ fun StiriROApplication() {
                             onShow = { screen = it }, onWeather = ::refreshWeather,
                             onSettings = { screen = "settings" })
                         "stats" -> StatsScreen(store) { screen = "more" }
+                        "weather" -> WeatherScreen(store, onBack = { screen = "more" }, onRefresh = ::refreshWeather)
                         "digest" -> DigestScreen(store,digestPeriod,
                             onChangePeriod = { digestPeriod = it },
                             onOpen = { store.markRead(it); selected = it },
@@ -228,9 +229,6 @@ fun StiriROApplication() {
                                 }
                             }
                         }
-                    }
-                    if (screen == "weather") {
-                        WeatherScreen(store, onBack = { screen = "more" }, onRefresh = ::refreshWeather)
                     }
                 }
             }
