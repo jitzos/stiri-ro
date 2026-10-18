@@ -27,6 +27,9 @@
         <h1>Știri <span>RO</span> <small id="appVersion" aria-label="Versiunea aplicației"></small></h1>
       </div>
       <div class="header-actions">
+        <button id="digestButton" class="digest-button" type="button" aria-haspopup="dialog">
+          <span aria-hidden="true">☀</span> Rezumat zilnic
+        </button>
         <button id="settingsButton" class="settings-button" type="button" aria-haspopup="dialog">
           <span aria-hidden="true">⚙</span> Setări
         </button>
@@ -75,6 +78,24 @@
             <span class="sr-only">Caută în titluri</span>
             <input id="searchInput" type="search" placeholder="Caută în titluri…" />
           </label>
+          <details id="advancedSearchDetails" class="advanced-search">
+            <summary>Căutare avansată</summary>
+            <div class="advanced-search-options">
+              <label><input id="historySearchToggle" type="checkbox" /> Caută și în istoricul local</label>
+              <label>Perioada
+                <select id="dateRangeFilter">
+                  <option value="all">Oricând</option><option value="1">Ultimele 24 de ore</option>
+                  <option value="7">Ultimele 7 zile</option><option value="30">Ultimele 30 de zile</option>
+                </select>
+              </label>
+              <label>Starea articolului
+                <select id="readingStatusFilter">
+                  <option value="all">Toate</option><option value="unread">Necitite</option>
+                  <option value="read">Citite</option><option value="saved">Salvate</option>
+                </select>
+              </label>
+            </div>
+          </details>
           <button id="weatherWidget" class="weather-widget" type="button" aria-label="Vreme locală. Deschide prognoza pe 5 zile" aria-live="polite" aria-haspopup="dialog" aria-expanded="false" aria-controls="weatherForecast" hidden>
             <span id="weatherIcon" class="weather-icon" aria-hidden="true">🌤️</span>
             <span class="weather-reading">
@@ -107,6 +128,7 @@
           <p id="statusText" aria-live="polite">Se încarcă fluxurile…</p>
         </div>
         <div class="feed-actions">
+          <button id="localFilterButton" class="secondary-button" type="button">⌖ Locale</button>
           <button id="savedFilterButton" class="secondary-button" type="button">☆ Salvate</button>
           <button id="unreadFilterButton" class="secondary-button" type="button">Necitite</button>
           <button id="markAllReadButton" class="secondary-button" type="button">Marchează citite</button>
@@ -208,6 +230,15 @@
           </div>
         </section>
 
+        <section class="settings-section" aria-labelledby="mutedTopicsTitle">
+          <h3 id="mutedTopicsTitle">Subiecte ascunse</h3>
+          <p class="settings-hint">Articolele care conțin aceste cuvinte nu vor apărea în flux, rezumat sau notificări.</p>
+          <label class="setting-field settings-inline-field">
+            Cuvinte sau expresii, separate prin virgulă
+            <input id="mutedKeywordsInput" type="text" maxlength="1000" placeholder="ex: horoscop, monden, pariuri" />
+          </label>
+        </section>
+
         <section class="settings-section" aria-labelledby="refreshSettingsTitle">
           <h3 id="refreshSettingsTitle">Actualizare automată</h3>
           <div class="select-grid">
@@ -253,6 +284,24 @@
           </div>
         </section>
 
+        <section class="settings-section" aria-labelledby="backupTitle">
+          <h3 id="backupTitle">Backup și restaurare</h3>
+          <p id="backupStatus" class="settings-hint" aria-live="polite">Exportă setările, articolele salvate, istoricul și starea de citire.</p>
+          <div class="settings-button-row">
+            <button id="exportBackupButton" class="location-button" type="button">Exportă backup</button>
+            <button id="importBackupButton" class="secondary-settings-button" type="button">Restaurează backup</button>
+          </div>
+        </section>
+
+        <section class="settings-section" aria-labelledby="shortcutsTitle">
+          <h3 id="shortcutsTitle">Scurtături de tastatură</h3>
+          <div class="shortcut-grid">
+            <span><kbd>/</kbd> Căutare</span><span><kbd>R</kbd> Actualizare</span>
+            <span><kbd>D</kbd> Rezumat zilnic</span><span><kbd>L</kbd> Știri locale</span>
+            <span><kbd>G</kbd> Înapoi sus</span><span><kbd>Ctrl</kbd> + <kbd>,</kbd> Setări</span>
+          </div>
+        </section>
+
         <section class="update-setting" aria-labelledby="updateTitle">
           <div>
             <strong id="updateTitle">Actualizări</strong>
@@ -265,6 +314,20 @@
         <span aria-hidden="true">↑</span>
         Înapoi sus
       </button>
+    </dialog>
+
+    <dialog id="digestDialog" class="digest-dialog" aria-labelledby="digestTitle">
+      <div class="digest-card">
+        <div class="settings-heading">
+          <div>
+            <p class="eyebrow">PE SCURT</p>
+            <h2 id="digestTitle">Rezumat zilnic</h2>
+          </div>
+          <button id="closeDigestButton" class="settings-close" type="button" aria-label="Închide rezumatul">×</button>
+        </div>
+        <p id="digestSubtitle" class="digest-subtitle"></p>
+        <div id="digestArticles" class="digest-articles"></div>
+      </div>
     </dialog>
 
     <template id="articleTemplate">
@@ -291,6 +354,7 @@
       </article>
     </template>
 
+    <script src="article-utils.js"></script>
     <script src="renderer.js"></script>
   </body>
 </html>

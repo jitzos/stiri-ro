@@ -1,6 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
-const { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, session, shell, Tray, WebContentsView } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Notification, session, shell, Tray, WebContentsView } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const { SOURCES, CATEGORIES, fetchAllFeeds } = require("./feeds");
 const {
@@ -10,6 +10,7 @@ const {
 } = require("./notification-utils");
 const { normalizePreferences, orderedSources } = require("./preferences");
 const { fetchForecast, fetchWeather } = require("./weather");
+const { buildDailyDigest, isMutedArticle } = require("./article-utils");
 
 let mainWindow = null;
 let tray = null;
@@ -93,7 +94,7 @@ function migrateLegacyLoginItem() {
 function notifyAboutNewArticles(articles) {
   const newArticles = collectNewArticles(articles, knownArticleIds, feedBaselineReady);
   feedBaselineReady = true;
-  const notificationArticles = filterNotificationArticles(newArticles, preferences);
+  const notificationArticles = filterNotificationArticles(newArticles.filter((article) => !isMutedArticle(article, preferences.mutedKeywords)), preferences);
   if (!Notification.isSupported() || notificationArticles.length === 0) return;
 
   const notification = new Notification(buildNotificationContent(notificationArticles));
@@ -340,6 +341,48 @@ function createWindow() {
 ipcMain.handle("feeds:list", () => orderedSources(SOURCES, preferences).map(({ feedUrl, ...source }) => source));
 ipcMain.handle("categories:list", () => CATEGORIES);
 ipcMain.handle("feeds:refresh", () => refreshFeeds());
+ipcMain.handle("digest:create", () => buildDailyDigest(latestFeed?.articles || [], preferences));
+ipcMain.handle("backup:export", async (_event, localData) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: "Exportă backup Știri RO",
+    defaultPath: `StiriRO-backup-${new Date().toISOString().slice(0, 10)}.json`,
+    filters: [{ name: "Backup Știri RO", extensions: ["json"] }]
+  });
+  if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+  const backup = {
+    app: "Știri RO",
+    formatVersion: 1,
+    exportedAt: new Date().toISOString(),
+    preferences,
+    minimizeToTray: localData?.minimizeToTray !== false,
+    savedArticles: Array.isArray(localData?.savedArticles) ? localData.savedArticles.slice(-500) : [],
+    seenArticles: Array.isArray(localData?.seenArticles) ? localData.seenArticles.slice(-2_000) : [],
+    articleHistory: Array.isArray(localData?.articleHistory) ? localData.articleHistory.slice(0, 2_000) : []
+  };
+  try {
+    fs.writeFileSync(result.filePath, `${JSON.stringify(backup, null, 2)}\n`, "utf8");
+    return { ok: true };
+  } catch {
+    return { ok: false, canceled: false, message: "Backupul nu a putut fi scris." };
+  }
+});
+ipcMain.handle("backup:import", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "Restaurează backup Știri RO",
+    properties: ["openFile"],
+    filters: [{ name: "Backup Știri RO", extensions: ["json"] }]
+  });
+  if (result.canceled || !result.filePaths[0]) return { ok: false, canceled: true };
+  try {
+    const filePath = result.filePaths[0];
+    if (fs.statSync(filePath).size > 10 * 1024 * 1024) throw new Error("Backup prea mare");
+    const backup = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    if (backup?.app !== "Știri RO" || backup?.formatVersion !== 1) throw new Error("Format invalid");
+    return { ok: true, backup };
+  } catch {
+    return { ok: false, canceled: false, message: "Fișierul de backup nu este valid." };
+  }
+});
 ipcMain.handle("weather:get", async (_event, location) => {
   try {
     const weather = await fetchWeather(location);

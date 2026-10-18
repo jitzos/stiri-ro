@@ -18,6 +18,11 @@ Aplicație desktop pentru Windows care adună știrile publicate de 24 de public
 - notificări Windows configurabile după sursă, categorie, cuvinte-cheie și ore de liniște;
 - surse ascunse, favorite și reordonabile;
 - articole salvate, filtru pentru necitite și marcare în masă ca citite;
+- știri locale pe baza locației meteo, istoric local și căutare avansată;
+- subiecte ascunse prin cuvinte-cheie;
+- rezumat zilnic diversificat, cu prioritate pentru sursele favorite;
+- backup și restaurare pentru setări, salvate, istoric și starea de citire;
+- scurtături de tastatură pentru acțiunile principale;
 - teme luminoasă/întunecată/automată, mărime de text și densitate a cardurilor;
 - installer Windows cu pornire opțională la autentificare;
 - actualizări automate prin GitHub Releases.

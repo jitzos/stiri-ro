@@ -131,7 +131,8 @@ h1 small {
 .refresh-menu-wrap { position: relative; }
 
 .refresh-button,
-.settings-button {
+.settings-button,
+.digest-button {
   padding: 8px 13px;
   color: #f8f5ed;
   font-weight: 700;
@@ -143,7 +144,8 @@ h1 small {
 }
 
 .refresh-button:hover,
-.settings-button:hover { background: rgba(255, 255, 255, 0.1); }
+.settings-button:hover,
+.digest-button:hover { background: rgba(255, 255, 255, 0.1); }
 .refresh-button:disabled { cursor: wait; opacity: 0.55; }
 .menu-caret { margin-left: 3px; font-size: 10px; }
 
@@ -227,6 +229,7 @@ h1 small {
 .settings-section > .setting-row { border-top: 0; }
 .settings-section h3 { margin: 0; padding: 18px 4px 8px; font-size: 15px; }
 .settings-hint { margin: 0 4px 12px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.settings-inline-field { padding: 0 4px 18px; }
 .setting-options { display: grid; gap: 14px; padding: 0 4px 18px; }
 .setting-options.disabled { opacity: .55; }
 .setting-field { display: grid; gap: 7px; color: var(--text); font-size: 13px; font-weight: 700; }
@@ -343,6 +346,13 @@ main { padding: 20px clamp(28px, 5vw, 76px) 60px; }
 
 .search input:focus { border-color: #183c2c; box-shadow: 0 0 0 3px rgba(24, 60, 44, 0.12); }
 
+.advanced-search { position: relative; }
+.advanced-search summary { width: max-content; margin-left: auto; color: var(--muted); font-size: 11px; font-weight: 750; cursor: pointer; }
+.advanced-search-options { display: grid; gap: 9px; margin-top: 7px; padding: 11px; background: var(--surface); border: 1px solid var(--line); border-radius: 9px; }
+.advanced-search-options label { display: grid; gap: 5px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.advanced-search-options label:first-child { display: flex; align-items: center; gap: 7px; color: var(--text); }
+.advanced-search-options select { width: 100%; padding: 7px 9px; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+
 .weather-widget {
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr);
@@ -431,6 +441,22 @@ main { padding: 20px clamp(28px, 5vw, 76px) 60px; }
   cursor: pointer;
 }
 .location-button:disabled { cursor: default; opacity: .55; }
+.settings-button-row { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 4px 18px; }
+.secondary-settings-button { padding: 8px 12px; color: var(--text); font-size: 12px; font-weight: 750; background: var(--surface-soft); border: 1px solid var(--line); border-radius: 7px; cursor: pointer; }
+.shortcut-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 0 4px 18px; color: var(--muted); font-size: 12px; }
+kbd { min-width: 24px; display: inline-block; padding: 2px 5px; color: var(--text); background: var(--surface-soft); border: 1px solid var(--line); border-radius: 4px; text-align: center; box-shadow: 0 1px 0 var(--line); }
+
+.digest-dialog { width: min(720px, calc(100vw - 40px)); max-height: min(88vh, 820px); padding: 0; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 24px 70px rgba(8, 24, 16, .34); }
+.digest-dialog::backdrop { background: rgba(7, 24, 16, .62); }
+.digest-card { max-height: min(88vh, 820px); overflow-y: auto; padding: 24px; }
+.digest-card .eyebrow { color: var(--muted); }
+.digest-card h2 { margin: 0; font-family: Georgia, serif; font-size: 30px; }
+.digest-subtitle { margin: 0 0 15px; color: var(--muted); font-size: 12px; }
+.digest-articles { display: grid; gap: 8px; }
+.digest-article { width: 100%; display: grid; gap: 5px; padding: 12px; color: var(--text); text-align: left; background: var(--surface-soft); border: 1px solid var(--line-soft); border-radius: 8px; cursor: pointer; }
+.digest-article:hover { border-color: var(--accent); }
+.digest-article span { color: var(--muted); font-size: 10px; font-weight: 750; text-transform: uppercase; }
+.digest-article strong { font-family: Georgia, serif; font-size: 16px; line-height: 1.25; }
 
 .feed-heading { padding: 28px 0 18px; }
 .feed-heading h2 { margin: 0 0 4px; font-family: Georgia, serif; font-size: 29px; }

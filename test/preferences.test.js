@@ -47,3 +47,8 @@ test("automatic and manual weather locations are stored independently", () => {
   const switched = normalizePreferences({ ...preferences, weatherLocationMode: "automatic" }, sourceIds, categoryIds);
   assert.deepEqual(switched.weatherLocation, automatic);
 });
+
+test("muted topic keywords are trimmed, deduplicated and bounded", () => {
+  const preferences = normalizePreferences({ mutedKeywords: " horoscop, Monden, horoscop " }, sourceIds, categoryIds);
+  assert.deepEqual(preferences.mutedKeywords, ["horoscop", "Monden"]);
+});

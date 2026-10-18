@@ -23,7 +23,8 @@ const DEFAULT_PREFERENCES = Object.freeze({
   weatherEnabled: true,
   weatherLocationRequested: false,
   weatherLocationMode: "automatic",
-  weatherLocation: null
+  weatherLocation: null,
+  mutedKeywords: []
 });
 
 function allowedUnique(values, allowed) {
@@ -41,6 +42,16 @@ function validWeatherLocation(value) {
   if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) return null;
   const name = typeof value?.name === "string" ? value.name.trim().slice(0, 120) : "";
   return { name: name || "Locația curentă", latitude, longitude };
+}
+
+function validKeywords(value) {
+  const values = Array.isArray(value) ? value : String(value || "").split(",");
+  const byNormalizedValue = new Map();
+  for (const item of values) {
+    const keyword = String(item).trim().slice(0, 80);
+    if (keyword) byNormalizedValue.set(keyword.toLocaleLowerCase("ro"), keyword);
+  }
+  return [...byNormalizedValue.values()].slice(0, 100);
 }
 
 function normalizePreferences(input = {}, sourceIds = [], categoryIds = []) {
@@ -87,7 +98,8 @@ function normalizePreferences(input = {}, sourceIds = [], categoryIds = []) {
     weatherLocationMode,
     weatherAutomaticLocation,
     weatherManualLocation,
-    weatherLocation
+    weatherLocation,
+    mutedKeywords: validKeywords(input.mutedKeywords)
   };
 }
 

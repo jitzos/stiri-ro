@@ -147,6 +147,26 @@ test("local weather supports first-run geolocation, manual location and an off s
   assert.match(main, /fetchForecast/);
 });
 
+test("reader includes local news, history search, muted topics, backup, shortcuts and daily digest", () => {
+  const main = fs.readFileSync(path.join(root, "src", "main.js"), "utf8");
+  const preload = fs.readFileSync(path.join(root, "src", "preload.js"), "utf8");
+  const html = fs.readFileSync(path.join(root, "src", "index.html"), "utf8");
+  const renderer = fs.readFileSync(path.join(root, "src", "renderer.js"), "utf8");
+
+  for (const id of ["digestButton", "digestDialog", "localFilterButton", "historySearchToggle", "dateRangeFilter", "readingStatusFilter", "mutedKeywordsInput", "exportBackupButton", "importBackupButton"]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  assert.match(main, /ipcMain\.handle\("digest:create"/);
+  assert.match(main, /ipcMain\.handle\("backup:export"/);
+  assert.match(main, /ipcMain\.handle\("backup:import"/);
+  assert.match(preload, /createDailyDigest/);
+  assert.match(preload, /exportBackup/);
+  assert.match(preload, /importBackup/);
+  assert.match(renderer, /articleHistory/);
+  assert.match(renderer, /key === "d"/);
+  assert.match(renderer, /key === "l"/);
+});
+
 test("startup is managed only by the app and removed on uninstall", () => {
   const installer = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf8");
   const main = fs.readFileSync(path.join(root, "src", "main.js"), "utf8");

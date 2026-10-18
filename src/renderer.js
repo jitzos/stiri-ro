@@ -13,13 +13,17 @@ const state = {
   minimizeToTray: localStorage.getItem("minimizeToTray") !== "false",
   seen: new Set(readStoredArray("seenArticles")),
   saved: new Map(readStoredArray("savedArticles").filter((article) => article?.id).map((article) => [article.id, article])),
-  unreadOnly: false, savedOnly: false, feedScrollY: 0, currentWeather: null, weatherForecast: [], weatherForecastView: "today"
+  history: new Map(readStoredArray("articleHistory").filter((article) => article?.id).map((article) => [article.id, article])),
+  unreadOnly: false, savedOnly: false, localOnly: false, historySearch: false, dateRange: "all", readingStatus: "all",
+  feedScrollY: 0, currentWeather: null, weatherForecast: [], weatherForecastView: "today"
 };
 
 const elements = {
   grid: document.querySelector("#articleGrid"), template: document.querySelector("#articleTemplate"),
   filters: document.querySelector("#sourceFilters"), categoryFilters: document.querySelector("#categoryFilters"),
   search: document.querySelector("#searchInput"), refresh: document.querySelector("#refreshButton"),
+  advancedSearch: document.querySelector("#advancedSearchDetails"), historySearch: document.querySelector("#historySearchToggle"),
+  dateRange: document.querySelector("#dateRangeFilter"), readingStatus: document.querySelector("#readingStatusFilter"),
   weatherWidget: document.querySelector("#weatherWidget"), weatherIcon: document.querySelector("#weatherIcon"),
   weatherTemperature: document.querySelector("#weatherTemperature"), weatherDescription: document.querySelector("#weatherDescription"),
   weatherLocation: document.querySelector("#weatherLocation"), weatherDetails: document.querySelector("#weatherDetails"),
@@ -30,6 +34,9 @@ const elements = {
   refreshMenu: document.querySelector("#refreshMenu"), refreshNow: document.querySelector("#refreshNowButton"),
   quickRefreshInterval: document.querySelector("#quickRefreshInterval"), quickTrayRefreshInterval: document.querySelector("#quickTrayRefreshInterval"),
   settingsButton: document.querySelector("#settingsButton"), settingsDialog: document.querySelector("#settingsDialog"),
+  digestButton: document.querySelector("#digestButton"), digestDialog: document.querySelector("#digestDialog"),
+  closeDigest: document.querySelector("#closeDigestButton"), digestSubtitle: document.querySelector("#digestSubtitle"),
+  digestArticles: document.querySelector("#digestArticles"),
   settingsCard: document.querySelector("#settingsCard"), settingsBackToTop: document.querySelector("#settingsBackToTopButton"),
   weatherEnabledToggle: document.querySelector("#weatherEnabledToggle"), weatherOptions: document.querySelector("#weatherOptions"),
   automaticWeatherMode: document.querySelector("#automaticWeatherMode"), manualWeatherMode: document.querySelector("#manualWeatherMode"),
@@ -45,11 +52,13 @@ const elements = {
   refreshInterval: document.querySelector("#refreshInterval"), trayRefreshInterval: document.querySelector("#trayRefreshInterval"),
   sourceManager: document.querySelector("#sourceManager"), themeSelect: document.querySelector("#themeSelect"),
   fontSizeSelect: document.querySelector("#fontSizeSelect"), densitySelect: document.querySelector("#densitySelect"),
+  mutedKeywords: document.querySelector("#mutedKeywordsInput"), exportBackup: document.querySelector("#exportBackupButton"),
+  importBackup: document.querySelector("#importBackupButton"), backupStatus: document.querySelector("#backupStatus"),
   updateStatus: document.querySelector("#updateStatus"), updateButton: document.querySelector("#updateButton"),
   appVersion: document.querySelector("#appVersion"), status: document.querySelector("#statusText"),
   count: document.querySelector("#articleCount"), title: document.querySelector("#feedTitle"),
   errors: document.querySelector("#errorBanner"), empty: document.querySelector("#emptyState"),
-  savedFilter: document.querySelector("#savedFilterButton"), unreadFilter: document.querySelector("#unreadFilterButton"),
+  localFilter: document.querySelector("#localFilterButton"), savedFilter: document.querySelector("#savedFilterButton"), unreadFilter: document.querySelector("#unreadFilterButton"),
   markAllRead: document.querySelector("#markAllReadButton"), readerToolbar: document.querySelector("#readerToolbar"),
   readerBack: document.querySelector("#readerBackButton"), readerTitle: document.querySelector("#readerTitle"),
   readerSource: document.querySelector("#readerSource"), backToTop: document.querySelector("#backToTopButton")
@@ -190,6 +199,7 @@ async function saveWeatherResult(weather, mode) {
   });
   renderSettings();
   renderWeather(weather);
+  renderArticles();
 }
 
 async function requestAutomaticLocation() {
@@ -279,6 +289,7 @@ function renderUpdateStatus(status) {
 
 function saveSeen() { localStorage.setItem("seenArticles", JSON.stringify([...state.seen].slice(-2_000))); }
 function saveSaved() { localStorage.setItem("savedArticles", JSON.stringify([...state.saved.values()].slice(-500))); }
+function saveHistory() { localStorage.setItem("articleHistory", JSON.stringify([...state.history.values()].slice(0, 2_000))); }
 
 function displaySources() {
   if (!state.preferences) return state.sources;
@@ -291,18 +302,31 @@ function displaySources() {
 }
 
 function filteredArticles() {
-  const query = state.query.trim().toLocaleLowerCase("ro");
-  const articles = state.savedOnly ? [...state.saved.values()] : state.articles;
+  const query = window.articleUtils.normalizeText(state.query.trim());
+  const articles = state.savedOnly
+    ? [...state.saved.values()]
+    : state.historySearch ? [...state.history.values()] : state.articles;
+  const cutoff = state.dateRange === "all" ? null : Date.now() - Number(state.dateRange) * 24 * 60 * 60 * 1_000;
   return articles.filter((article) => {
     const sourceMatches = state.selectedSource === "all" || article.sourceId === state.selectedSource;
     const categoryMatches = state.selectedCategory === "all" || article.categoryId === state.selectedCategory;
-    const textMatches = !query || `${article.title} ${article.excerpt}`.toLocaleLowerCase("ro").includes(query);
-    return sourceMatches && categoryMatches && textMatches && (!state.unreadOnly || !state.seen.has(article.id));
+    const textMatches = !query || window.articleUtils.articleText(article).includes(query);
+    const dateMatches = !cutoff || !article.publishedAt || Date.parse(article.publishedAt) >= cutoff;
+    const localMatches = !state.localOnly || window.articleUtils.isLocalArticle(article, state.preferences.weatherLocation);
+    const muted = window.articleUtils.isMutedArticle(article, state.preferences.mutedKeywords);
+    const readingMatches = state.readingStatus === "all"
+      || state.readingStatus === "unread" && !state.seen.has(article.id)
+      || state.readingStatus === "read" && state.seen.has(article.id)
+      || state.readingStatus === "saved" && state.saved.has(article.id);
+    return sourceMatches && categoryMatches && textMatches && dateMatches && localMatches && !muted
+      && readingMatches && (!state.unreadOnly || !state.seen.has(article.id));
   });
 }
 
 function updateFeedTitle() {
   if (state.savedOnly) elements.title.textContent = "Articole salvate";
+  else if (state.localOnly) elements.title.textContent = `Știri locale · ${state.preferences.weatherLocation?.name || "locație"}`;
+  else if (state.historySearch) elements.title.textContent = "Căutare în istoric";
   else if (state.selectedSource !== "all") {
     elements.title.textContent = state.sources.find(({ id }) => id === state.selectedSource)?.name || "Ultimele știri";
   } else elements.title.textContent = state.unreadOnly ? "Știri necitite" : "Ultimele știri";
@@ -352,6 +376,9 @@ function renderArticles() {
   elements.savedFilter.textContent = `${state.savedOnly ? "★" : "☆"} Salvate (${state.saved.size})`;
   elements.unreadFilter.classList.toggle("active", state.unreadOnly);
   elements.unreadFilter.textContent = `Necitite (${unreadCount})`;
+  elements.localFilter.classList.toggle("active", state.localOnly);
+  elements.localFilter.disabled = !state.preferences.weatherLocation;
+  elements.localFilter.title = state.preferences.weatherLocation ? `Știri despre ${state.preferences.weatherLocation.name}` : "Configurează locația în Setări";
   elements.markAllRead.disabled = articles.length === 0 || articles.every(({ id }) => state.seen.has(id));
   elements.empty.hidden = articles.length > 0; elements.grid.hidden = articles.length === 0;
   updateFeedTitle();
@@ -436,6 +463,7 @@ function renderSettings() {
   elements.themeSelect.value = preferences.theme;
   elements.fontSizeSelect.value = preferences.fontSize;
   elements.densitySelect.value = preferences.density;
+  elements.mutedKeywords.value = preferences.mutedKeywords.join(", ");
   elements.weatherEnabledToggle.checked = preferences.weatherEnabled;
   elements.automaticWeatherMode.checked = preferences.weatherLocationMode === "automatic";
   elements.manualWeatherMode.checked = preferences.weatherLocationMode === "manual";
@@ -488,10 +516,32 @@ function renderSourceManager() {
 }
 
 function applyFeedResult(result) {
-  state.articles = result.articles; state.fetchedAt = result.fetchedAt; renderArticles();
+  state.articles = result.articles;
+  state.history = new Map(window.articleUtils.mergeArticleHistory([...state.history.values()], result.articles).map((article) => [article.id, article]));
+  saveHistory();
+  state.fetchedAt = result.fetchedAt; renderArticles();
   elements.status.textContent = `Actualizat ${relativeTime(result.fetchedAt)} · automat la ${state.preferences.refreshIntervalMinutes} minute`;
   elements.errors.hidden = result.errors.length === 0;
   if (result.errors.length) elements.errors.textContent = `Nu s-au putut încărca: ${result.errors.map((error) => error.sourceName).join(", ")}.`;
+}
+
+async function openDailyDigest() {
+  const articles = await window.newsApi.createDailyDigest();
+  elements.digestArticles.replaceChildren();
+  elements.digestSubtitle.textContent = articles.length
+    ? `${articles.length} știri importante din ultimele 36 de ore, cu prioritate pentru sursele favorite.`
+    : "Nu sunt suficiente știri recente pentru rezumat.";
+  for (const article of articles) {
+    const button = document.createElement("button"); button.type = "button"; button.className = "digest-article";
+    const meta = document.createElement("span"); meta.textContent = `${article.sourceName} · ${article.categoryName}`;
+    const title = document.createElement("strong"); title.textContent = article.title;
+    button.append(meta, title);
+    button.addEventListener("click", async () => {
+      elements.digestDialog.close(); state.seen.add(article.id); saveSeen(); await openReader(article);
+    });
+    elements.digestArticles.append(button);
+  }
+  elements.digestDialog.showModal();
 }
 
 async function refresh() {
@@ -508,6 +558,9 @@ function setRefreshMenuOpen(open) {
 }
 
 elements.search.addEventListener("input", (event) => { state.query = event.target.value; renderArticles(); });
+elements.historySearch.addEventListener("change", (event) => { state.historySearch = event.target.checked; renderArticles(); });
+elements.dateRange.addEventListener("change", (event) => { state.dateRange = event.target.value; renderArticles(); });
+elements.readingStatus.addEventListener("change", (event) => { state.readingStatus = event.target.value; renderArticles(); });
 elements.weatherWidget.addEventListener("click", () => setWeatherForecastOpen(elements.weatherForecast.hidden));
 elements.closeWeatherForecast.addEventListener("click", () => { setWeatherForecastOpen(false); elements.weatherWidget.focus(); });
 elements.todayForecastTab.addEventListener("click", () => setWeatherForecastView("today"));
@@ -519,15 +572,32 @@ document.addEventListener("click", (event) => {
   if (!elements.weatherForecast.hidden && !event.target.closest(".search-weather")) setWeatherForecastOpen(false);
 });
 document.addEventListener("keydown", (event) => {
-  if (event.key !== "Escape") return;
-  if (!elements.refreshMenu.hidden) setRefreshMenuOpen(false);
-  if (!elements.weatherForecast.hidden) setWeatherForecastOpen(false);
+  if (event.key === "Escape") {
+    if (!elements.refreshMenu.hidden) setRefreshMenuOpen(false);
+    if (!elements.weatherForecast.hidden) setWeatherForecastOpen(false);
+    return;
+  }
+  if (event.ctrlKey && event.key === ",") {
+    event.preventDefault();
+    if (!elements.settingsDialog.open) elements.settingsButton.click();
+    return;
+  }
+  if (event.target.closest("input, textarea, select") || elements.settingsDialog.open || elements.digestDialog.open || document.body.classList.contains("reader-open")) return;
+  const key = event.key.toLocaleLowerCase("ro");
+  if (key === "/") { event.preventDefault(); elements.search.focus(); }
+  else if (key === "r") refresh();
+  else if (key === "d") openDailyDigest();
+  else if (key === "l" && !elements.localFilter.disabled) elements.localFilter.click();
+  else if (key === "g") window.scrollTo({ top: 0, behavior: preferredScrollBehavior() });
 });
 elements.settingsButton.addEventListener("click", () => {
   elements.settingsDialog.showModal();
   updateSettingsBackToTopVisibility();
 });
 elements.settingsDialog.addEventListener("click", (event) => { if (event.target === elements.settingsDialog) elements.settingsDialog.close(); });
+elements.digestButton.addEventListener("click", openDailyDigest);
+elements.closeDigest.addEventListener("click", () => elements.digestDialog.close());
+elements.digestDialog.addEventListener("click", (event) => { if (event.target === elements.digestDialog) elements.digestDialog.close(); });
 elements.readerBack.addEventListener("click", closeReader);
 elements.backToTop.addEventListener("click", () => {
   window.scrollTo({ top: 0, behavior: preferredScrollBehavior() });
@@ -537,6 +607,7 @@ elements.settingsBackToTop.addEventListener("click", () => {
   elements.settingsCard.scrollTo({ top: 0, behavior: preferredScrollBehavior() });
 });
 elements.settingsCard.addEventListener("scroll", updateSettingsBackToTopVisibility, { passive: true });
+elements.localFilter.addEventListener("click", () => { if (!elements.localFilter.disabled) { state.localOnly = !state.localOnly; renderArticles(); } });
 elements.savedFilter.addEventListener("click", () => { state.savedOnly = !state.savedOnly; renderArticles(); });
 elements.unreadFilter.addEventListener("click", () => { state.unreadOnly = !state.unreadOnly; renderArticles(); });
 elements.markAllRead.addEventListener("click", () => { for (const article of filteredArticles()) state.seen.add(article.id); saveSeen(); renderArticles(); });
@@ -596,6 +667,7 @@ elements.startupToggle.addEventListener("change", async (event) => {
 });
 elements.notificationsToggle.addEventListener("change", async (event) => { await updatePreferences({ notificationsEnabled: event.target.checked }); updateNotificationControls(); });
 elements.notificationKeywords.addEventListener("change", (event) => updatePreferences({ notificationKeywords: event.target.value }));
+elements.mutedKeywords.addEventListener("change", async (event) => { await updatePreferences({ mutedKeywords: event.target.value }); renderSettings(); renderArticles(); });
 elements.quietHoursToggle.addEventListener("change", (event) => updatePreferences({ quietHoursEnabled: event.target.checked }));
 elements.quietHoursStart.addEventListener("change", (event) => updatePreferences({ quietHoursStart: event.target.value }));
 elements.quietHoursEnd.addEventListener("change", (event) => updatePreferences({ quietHoursEnd: event.target.value }));
@@ -606,6 +678,31 @@ elements.quickTrayRefreshInterval.addEventListener("change", async (event) => { 
 elements.themeSelect.addEventListener("change", (event) => updatePreferences({ theme: event.target.value }));
 elements.fontSizeSelect.addEventListener("change", (event) => updatePreferences({ fontSize: event.target.value }));
 elements.densitySelect.addEventListener("change", (event) => updatePreferences({ density: event.target.value }));
+elements.exportBackup.addEventListener("click", async () => {
+  elements.backupStatus.textContent = "Se exportă backupul…";
+  const result = await window.newsApi.exportBackup({
+    minimizeToTray: state.minimizeToTray,
+    savedArticles: [...state.saved.values()],
+    seenArticles: [...state.seen],
+    articleHistory: [...state.history.values()]
+  });
+  elements.backupStatus.textContent = result.ok ? "Backupul a fost exportat." : result.canceled ? "Export anulat." : result.message || "Backupul nu a putut fi exportat.";
+});
+elements.importBackup.addEventListener("click", async () => {
+  elements.backupStatus.textContent = "Se citește backupul…";
+  const result = await window.newsApi.importBackup();
+  if (!result.ok) {
+    elements.backupStatus.textContent = result.canceled ? "Restaurare anulată." : result.message;
+    return;
+  }
+  const backup = result.backup;
+  localStorage.setItem("savedArticles", JSON.stringify((Array.isArray(backup.savedArticles) ? backup.savedArticles : []).filter((article) => article?.id).slice(-500)));
+  localStorage.setItem("seenArticles", JSON.stringify((Array.isArray(backup.seenArticles) ? backup.seenArticles : []).filter((id) => typeof id === "string").slice(-2_000)));
+  localStorage.setItem("articleHistory", JSON.stringify((Array.isArray(backup.articleHistory) ? backup.articleHistory : []).filter((article) => article?.id).slice(0, 2_000)));
+  if (typeof backup.minimizeToTray === "boolean") localStorage.setItem("minimizeToTray", String(backup.minimizeToTray));
+  await updatePreferences(backup.preferences && typeof backup.preferences === "object" ? backup.preferences : {});
+  window.location.reload();
+});
 elements.updateButton.addEventListener("click", async () => {
   const action = elements.updateButton.dataset.action; elements.updateButton.disabled = true;
   if (action === "download") renderUpdateStatus(await window.newsApi.downloadUpdate());
