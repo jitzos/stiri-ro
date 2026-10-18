@@ -103,6 +103,16 @@ test("settings include their own Romanian back-to-top control", () => {
   assert.match(styles, /\.settings-back-to-top[\s\S]*right: 8px[\s\S]*background: #c83e35/);
 });
 
+test("settings stay fixed in the viewport until closed", () => {
+  const renderer = fs.readFileSync(path.join(root, "src", "renderer.js"), "utf8");
+  const styles = fs.readFileSync(path.join(root, "src", "styles.css"), "utf8");
+
+  assert.match(styles, /\.settings-dialog\s*\{[\s\S]*?position: fixed;[\s\S]*?inset: 0;[\s\S]*?margin: auto;/);
+  assert.match(styles, /\.settings-open\s*\{\s*overflow: hidden;\s*\}/);
+  assert.match(renderer, /settingsDialog\.showModal\(\);[\s\S]*classList\.add\("settings-open"\)/);
+  assert.match(renderer, /settingsDialog\.addEventListener\("close",[\s\S]*classList\.remove\("settings-open"\)/);
+});
+
 test("header refresh button opens synchronized refresh options", () => {
   const html = fs.readFileSync(path.join(root, "src", "index.html"), "utf8");
   const renderer = fs.readFileSync(path.join(root, "src", "renderer.js"), "utf8");

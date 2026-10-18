@@ -592,8 +592,10 @@ document.addEventListener("keydown", (event) => {
 });
 elements.settingsButton.addEventListener("click", () => {
   elements.settingsDialog.showModal();
+  document.body.classList.add("settings-open");
   updateSettingsBackToTopVisibility();
 });
+elements.settingsDialog.addEventListener("close", () => document.body.classList.remove("settings-open"));
 elements.settingsDialog.addEventListener("click", (event) => { if (event.target === elements.settingsDialog) elements.settingsDialog.close(); });
 elements.digestButton.addEventListener("click", openDailyDigest);
 elements.closeDigest.addEventListener("click", () => elements.digestDialog.close());
