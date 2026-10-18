@@ -24,7 +24,8 @@ const DEFAULT_PREFERENCES = Object.freeze({
   weatherLocationRequested: false,
   weatherLocationMode: "automatic",
   weatherLocation: null,
-  mutedKeywords: []
+  mutedKeywords: [],
+  followedTopics: []
 });
 
 function allowedUnique(values, allowed) {
@@ -99,7 +100,8 @@ function normalizePreferences(input = {}, sourceIds = [], categoryIds = []) {
     weatherAutomaticLocation,
     weatherManualLocation,
     weatherLocation,
-    mutedKeywords: validKeywords(input.mutedKeywords)
+    mutedKeywords: validKeywords(input.mutedKeywords),
+    followedTopics: validKeywords(input.followedTopics).slice(0, 20)
   };
 }
 
