@@ -24,3 +24,13 @@ test("Codemagic creates an unsigned IPA for Sideloadly", () => {
   assert.match(workflow, /iphoneos/);
 });
 
+
+test("iOS groups at most five news notifications with six-hour cooldown", () => {
+  const store = fs.readFileSync(path.join(root, "ios", "StiriRO", "NewsStore.swift"), "utf8");
+  assert.match(store, /notificationInterval:\s*TimeInterval\s*=\s*6\s*\*\s*60\s*\*\s*60/);
+  assert.match(store, /notificationLimit\s*=\s*5/);
+  assert.match(store, /pendingNotifications/);
+  assert.match(store, /lastNotificationAt/);
+  assert.match(store, /timeIntervalSince\(lastNotificationAt\)/);
+  assert.match(store, /joined\(separator: "\\n"\)/);
+});
