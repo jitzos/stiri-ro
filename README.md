@@ -15,7 +15,7 @@ Aplicație desktop pentru Windows care adună știrile publicate de 24 de public
 - selector de surse cu derulare;
 - opțiune de minimizare în system tray;
 - intervale separate de actualizare pentru fereastra vizibilă și system tray;
-- notificări Windows configurabile după sursă, categorie, cuvinte-cheie și ore de liniște;
+- cel mult o notificare Windows la 6 ore cu până la 5 articole, configurabilă după sursă, categorie, cuvinte-cheie și ore de liniște;
 - surse ascunse, favorite și reordonabile;
 - articole salvate, filtru pentru necitite și marcare în masă ca citite;
 - știri locale pe baza locației meteo, istoric local și căutare avansată;
@@ -60,8 +60,8 @@ Din **Setări → Actualizări**, utilizatorul poate verifica, descărca și ins
 Actualizează câmpul `version` din `package.json`, apoi creează și publică un tag cu aceeași versiune:
 
 ```bash
-git tag v0.0.8
-git push origin v0.0.8
+git tag v0.0.9
+git push origin v0.0.9
 ```
 
 Workflow-ul GitHub Actions testează proiectul, construiește installerul Windows și publică automat release-ul și metadatele folosite de updater.
