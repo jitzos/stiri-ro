@@ -41,6 +41,9 @@ workflows:
           cp -R "$APP_PATH" build/ipa/Payload/
           cd build/ipa
           /usr/bin/zip -qry ../StiriRO-unsigned.ipa Payload
+          cd ../..
+          EXPECTED_VERSION=$(node -p "require('./package.json').version")
+          bash scripts/verify-ios-ipa.sh build/StiriRO-unsigned.ipa "$EXPECTED_VERSION"
     artifacts:
       - build/StiriRO-unsigned.ipa
       - build/ios/Build/Products/Release-iphoneos/*.app

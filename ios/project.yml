@@ -5,7 +5,7 @@ options:
     iOS: "16.4"
 settings:
   base:
-    PRODUCT_NAME: "Știri RO"
+    PRODUCT_NAME: StiriRO
     MARKETING_VERSION: 0.0.10
     CURRENT_PROJECT_VERSION: 10
     SWIFT_VERSION: 5.0

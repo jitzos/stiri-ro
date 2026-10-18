@@ -74,3 +74,17 @@ test("iOS preference decoding remains backward compatible", () => {
   assert.match(models, /init\(from decoder: Decoder\) throws/);
   assert.match(models, /decodeIfPresent/);
 });
+
+test("Sideloadly IPA has an ASCII bundle executable while keeping the Romanian display name", () => {
+  const project = fs.readFileSync(path.join(root, "ios", "project.yml"), "utf8");
+  const plist = fs.readFileSync(path.join(root, "ios", "StiriRO", "Info.plist"), "utf8");
+  const verifier = fs.readFileSync(path.join(root, "scripts", "verify-ios-ipa.sh"), "utf8");
+  const release = fs.readFileSync(path.join(root, ".github", "workflows", "release.yml"), "utf8");
+  assert.match(project, /PRODUCT_NAME: StiriRO/);
+  assert.match(plist, /<key>CFBundleDisplayName<\/key>\s*<string>Știri RO<\/string>/);
+  assert.match(verifier, /EXPECTED_BINARY="StiriRO"/);
+  assert.match(verifier, /CFBundleExecutable/);
+  assert.match(verifier, /Mach-O/);
+  assert.match(verifier, /arm64/);
+  assert.match(release, /scripts\/verify-ios-ipa\.sh/);
+});
