@@ -22,11 +22,18 @@ final class NewsStore: ObservableObject {
     private var refreshTask: Task<Void, Never>?
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
+    private let notificationInterval: TimeInterval = 6 * 60 * 60
+    private let notificationLimit = 5
+    private var pendingNotifications: [Article] = []
+    private var lastNotificationAt: Date = .now
 
     init() {
         preferences = Self.load(Preferences.self, key: "preferences") ?? Preferences()
         savedIDs = Set(UserDefaults.standard.stringArray(forKey: "savedIDs") ?? [])
         readIDs = Set(UserDefaults.standard.stringArray(forKey: "readIDs") ?? [])
+        let defaults = UserDefaults.standard
+        lastNotificationAt = defaults.object(forKey: "lastNotificationAt") as? Date ?? .now
+        pendingNotifications = (defaults.data(forKey: "pendingNotifications").flatMap { try? JSONDecoder().decode([Article].self, from: $0) } ?? []).prefix(5).map { $0 }
     }
 
     var visibleSources: [NewsSource] {
@@ -76,6 +83,10 @@ final class NewsStore: ObservableObject {
     func updatePreferences(_ change: (inout Preferences) -> Void) {
         change(&preferences)
         persist()
+        if !preferences.notificationsEnabled {
+            pendingNotifications = []
+            persistNotificationQueue()
+        }
         scheduleRefresh()
     }
 
@@ -120,9 +131,19 @@ final class NewsStore: ObservableObject {
         }
     }
 
+    private func persistNotificationQueue() {
+        let defaults = UserDefaults.standard
+        defaults.set(lastNotificationAt, forKey: "lastNotificationAt")
+        if let data = try? encoder.encode(pendingNotifications) {
+            defaults.set(data, forKey: "pendingNotifications")
+        }
+    }
+
     private func notify(for candidates: [Article]) async {
-        guard preferences.notificationsEnabled, !isQuietTime else { return }
-        let keywords = preferences.notificationKeywords.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces).lowercased() }.filter { !$0.isEmpty }
+        guard preferences.notificationsEnabled else { return }
+        let keywords = preferences.notificationKeywords.split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
+            .filter { !$0.isEmpty }
         let matches = candidates.filter { article in
             if !preferences.notificationSourceIDs.isEmpty && !preferences.notificationSourceIDs.contains(article.sourceID) { return false }
             if !preferences.notificationCategoryIDs.isEmpty && !preferences.notificationCategoryIDs.contains(article.categoryID) { return false }
@@ -130,12 +151,41 @@ final class NewsStore: ObservableObject {
             let text = "\(article.title) \(article.excerpt)".lowercased()
             return keywords.contains(where: text.contains)
         }
-        guard let first = matches.first else { return }
+        let combined = pendingNotifications + matches
+        var unique: [String: Article] = [:]
+        for article in combined { unique[article.id] = article }
+        pendingNotifications = Array(unique.values.sorted { $0.publishedAt > $1.publishedAt }.prefix(notificationLimit))
+        persistNotificationQueue()
+
+        guard !pendingNotifications.isEmpty,
+              !isQuietTime,
+              Date().timeIntervalSince(lastNotificationAt) >= notificationInterval else { return }
+
+        let selected = pendingNotifications.filter { article in
+            if !preferences.notificationSourceIDs.isEmpty && !preferences.notificationSourceIDs.contains(article.sourceID) { return false }
+            if !preferences.notificationCategoryIDs.isEmpty && !preferences.notificationCategoryIDs.contains(article.categoryID) { return false }
+            if keywords.isEmpty { return true }
+            return keywords.contains(where: { "\(article.title) \(article.excerpt)".lowercased().contains($0) })
+        }
+        guard !selected.isEmpty else {
+            pendingNotifications = []
+            persistNotificationQueue()
+            return
+        }
         let content = UNMutableNotificationContent()
-        content.title = matches.count == 1 ? "Știre nouă" : "\(matches.count) știri noi"
-        content.body = matches.count == 1 ? "\(first.sourceName): \(first.title)" : "\(first.title) și încă \(matches.count - 1)"
+        content.title = selected.count == 1 ? "Știre nouă" : "\(selected.count) știri noi"
+        content.body = selected.map { "\($0.sourceName): \($0.title)" }.joined(separator: "\n")
         content.sound = .default
-        try? await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
+        do {
+            try await UNUserNotificationCenter.current().add(
+                UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+            )
+            lastNotificationAt = .now
+            pendingNotifications = []
+            persistNotificationQueue()
+        } catch {
+            // Retain articles and retry on the next successful refresh.
+        }
     }
 
     private var isQuietTime: Bool {
