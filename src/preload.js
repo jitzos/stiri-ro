@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld("newsApi", {
   createDailyDigest: () => ipcRenderer.invoke("digest:create"),
   exportBackup: (localData) => ipcRenderer.invoke("backup:export", localData),
   importBackup: () => ipcRenderer.invoke("backup:import"),
+  exportSync: (data) => ipcRenderer.invoke("sync:export", data),
+  importSync: () => ipcRenderer.invoke("sync:import"),
   setMinimizeToTray: (enabled) => ipcRenderer.invoke("settings:minimize-to-tray", enabled),
   getStartAtLogin: () => ipcRenderer.invoke("settings:get-start-at-login"),
   setStartAtLogin: (enabled) => ipcRenderer.invoke("settings:set-start-at-login", enabled),
