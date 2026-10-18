@@ -85,9 +85,20 @@ test("feed includes a Romanian back-to-top control", () => {
   const styles = fs.readFileSync(path.join(root, "src", "styles.css"), "utf8");
 
   assert.match(html, /id="backToTopButton"[\s\S]*Înapoi sus/);
-  assert.match(renderer, /window\.scrollTo\(\{ top: 0, behavior \}\)/);
+  assert.match(renderer, /window\.scrollTo\(\{ top: 0, behavior: preferredScrollBehavior\(\) \}\)/);
   assert.match(renderer, /prefers-reduced-motion/);
   assert.match(styles, /\.back-to-top[\s\S]*position: fixed/);
+});
+
+test("settings include their own Romanian back-to-top control", () => {
+  const html = fs.readFileSync(path.join(root, "src", "index.html"), "utf8");
+  const renderer = fs.readFileSync(path.join(root, "src", "renderer.js"), "utf8");
+  const styles = fs.readFileSync(path.join(root, "src", "styles.css"), "utf8");
+
+  assert.match(html, /id="settingsBackToTopButton"[\s\S]*Înapoi sus/);
+  assert.match(renderer, /settingsCard\.scrollTo\(\{ top: 0, behavior: preferredScrollBehavior\(\) \}\)/);
+  assert.match(renderer, /settingsCard\.addEventListener\("scroll"/);
+  assert.match(styles, /\.settings-back-to-top[\s\S]*position: absolute/);
 });
 
 test("startup is managed only by the app and removed on uninstall", () => {

@@ -82,7 +82,7 @@
     </button>
 
     <dialog id="settingsDialog" class="settings-dialog" aria-labelledby="settingsTitle">
-      <form method="dialog" class="settings-card">
+      <form id="settingsCard" method="dialog" class="settings-card">
         <div class="settings-heading">
           <div>
             <p class="eyebrow">ȘTIRI RO</p>
@@ -189,6 +189,10 @@
           <button id="updateButton" class="update-button" type="button">Verifică acum</button>
         </section>
       </form>
+      <button id="settingsBackToTopButton" class="settings-back-to-top" type="button" aria-label="Înapoi sus în setări" title="Înapoi sus în setări" hidden>
+        <span aria-hidden="true">↑</span>
+        Înapoi sus
+      </button>
     </dialog>
 
     <template id="articleTemplate">

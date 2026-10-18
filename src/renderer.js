@@ -21,6 +21,7 @@ const elements = {
   filters: document.querySelector("#sourceFilters"), categoryFilters: document.querySelector("#categoryFilters"),
   search: document.querySelector("#searchInput"), refresh: document.querySelector("#refreshButton"),
   settingsButton: document.querySelector("#settingsButton"), settingsDialog: document.querySelector("#settingsDialog"),
+  settingsCard: document.querySelector("#settingsCard"), settingsBackToTop: document.querySelector("#settingsBackToTopButton"),
   trayToggle: document.querySelector("#trayToggle"), startupToggle: document.querySelector("#startupToggle"),
   startupHelp: document.querySelector("#startupHelp"), notificationsToggle: document.querySelector("#notificationsToggle"),
   notificationsHelp: document.querySelector("#notificationsHelp"), notificationOptions: document.querySelector("#notificationOptions"),
@@ -43,6 +44,14 @@ const elements = {
 
 function updateBackToTopVisibility() {
   elements.backToTop.hidden = document.body.classList.contains("reader-open") || window.scrollY < 500;
+}
+
+function updateSettingsBackToTopVisibility() {
+  elements.settingsBackToTop.hidden = elements.settingsCard.scrollTop < 300;
+}
+
+function preferredScrollBehavior() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
 }
 
 async function closeReader() {
@@ -311,14 +320,20 @@ async function refresh() {
 
 elements.search.addEventListener("input", (event) => { state.query = event.target.value; renderArticles(); });
 elements.refresh.addEventListener("click", refresh);
-elements.settingsButton.addEventListener("click", () => elements.settingsDialog.showModal());
+elements.settingsButton.addEventListener("click", () => {
+  elements.settingsDialog.showModal();
+  updateSettingsBackToTopVisibility();
+});
 elements.settingsDialog.addEventListener("click", (event) => { if (event.target === elements.settingsDialog) elements.settingsDialog.close(); });
 elements.readerBack.addEventListener("click", closeReader);
 elements.backToTop.addEventListener("click", () => {
-  const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
-  window.scrollTo({ top: 0, behavior });
+  window.scrollTo({ top: 0, behavior: preferredScrollBehavior() });
 });
 window.addEventListener("scroll", updateBackToTopVisibility, { passive: true });
+elements.settingsBackToTop.addEventListener("click", () => {
+  elements.settingsCard.scrollTo({ top: 0, behavior: preferredScrollBehavior() });
+});
+elements.settingsCard.addEventListener("scroll", updateSettingsBackToTopVisibility, { passive: true });
 elements.savedFilter.addEventListener("click", () => { state.savedOnly = !state.savedOnly; renderArticles(); });
 elements.unreadFilter.addEventListener("click", () => { state.unreadOnly = !state.unreadOnly; renderArticles(); });
 elements.markAllRead.addEventListener("click", () => { for (const article of filteredArticles()) state.seen.add(article.id); saveSeen(); renderArticles(); });
