@@ -65,5 +65,63 @@
     return selected;
   }
 
-  return { articleText, buildDailyDigest, isLocalArticle, isMutedArticle, locationTerms, mergeArticleHistory, normalizeText, parseKeywords };
+
+  function matchTopic(article, topics) {
+    const text = articleText(article);
+    return parseKeywords(topics).some((topic) => text.includes(normalizeText(topic)));
+  }
+
+  // Transparent editorial ranking, not a claim of independently verified importance.
+  // Coverage is estimated from similar RSS headlines across distinct publishers.
+  function topStories(articles, preferences = {}, maximum = 10, now = Date.now()) {
+    const favorites = new Set(preferences.favoriteSourceIds || []);
+    const stopWords = new Set(["pentru", "despre", "dupa", "intre", "acesta", "aceasta", "care", "sunt", "este", "din", "prin", "fost", "unui", "unei", "si", "sau", "mai", "la", "ale", "cel", "cea", "romania"]);
+    const tokens = (title) => new Set(normalizeText(title).split(/[^a-z0-9]+/).filter((part) => part.length >= 4 && !stopWords.has(part)));
+    const fresh = articles.filter((article) => {
+      if (!article?.id || isMutedArticle(article, preferences.mutedKeywords)) return false;
+      const time = Date.parse(article.publishedAt);
+      return Number.isFinite(time) && time <= now + 3600_000 && now - time <= 36 * 3600_000;
+    });
+    const unique = [...new Map(fresh.map((a) => [a.id, a])).values()].slice(0, 1500);
+    const clusters = [];
+    for (const article of unique.sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt))) {
+      const words = tokens(article.title);
+      const cluster = words.size >= 3 ? clusters.find((entry) => {
+        const overlap = [...words].filter((word) => entry.words.has(word)).length;
+        return overlap >= 3 && overlap / Math.min(words.size, entry.words.size) >= 0.65;
+      }) : null;
+      if (cluster) cluster.articles.push(article);
+      else clusters.push({ words, articles: [article] });
+    }
+    return clusters.map((cluster) => {
+      const sources = new Set(cluster.articles.map((item) => item.sourceId));
+      const representative = cluster.articles.find((a) => favorites.has(a.sourceId)) || cluster.articles[0];
+      const ageHours = Math.max(0, (now - Date.parse(representative.publishedAt)) / 3600_000);
+      const score = Math.max(0, 36 - ageHours) + 14 * Math.min(4, sources.size - 1)
+        + (favorites.has(representative.sourceId) ? 6 : 0);
+      return { article: representative, sourceCount: sources.size, score: Math.round(score * 10) / 10 };
+    }).sort((a, b) => b.score - a.score || Date.parse(b.article.publishedAt) - Date.parse(a.article.publishedAt))
+      .slice(0, Math.max(0, Math.min(10, maximum)));
+  }
+
+  function readingStats(events, articles, now = Date.now(), days = 30) {
+    const since = now - days * 86400_000;
+    const recent = Array.isArray(events) ? events.filter((event) => {
+      const when = Date.parse(event?.at || "");
+      return Number.isFinite(when) && when >= since && when <= now && typeof event.articleId === "string";
+    }) : [];
+    const lookup = new Map(articles.map((a) => [a.id, a]));
+    const ids = new Set(recent.map((e) => e.articleId));
+    const bySource = new Map(), byCategory = new Map();
+    for (const id of ids) {
+      const item = lookup.get(id);
+      if (!item) continue;
+      bySource.set(item.sourceName || item.sourceId, (bySource.get(item.sourceName || item.sourceId) || 0) + 1);
+      byCategory.set(item.categoryName || item.categoryId, (byCategory.get(item.categoryName || item.categoryId) || 0) + 1);
+    }
+    const ranked = (map) => [...map].sort((a, b) => b[1] - a[1]).slice(0, 5);
+    return { opens: recent.length, uniqueArticles: ids.size, bySource: ranked(bySource), byCategory: ranked(byCategory) };
+  }
+
+  return { matchTopic, readingStats, topStories, articleText, buildDailyDigest, isLocalArticle, isMutedArticle, locationTerms, mergeArticleHistory, normalizeText, parseKeywords };
 });

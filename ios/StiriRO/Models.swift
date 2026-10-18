@@ -53,10 +53,10 @@ enum WeatherLocationMode: String, Codable, CaseIterable, Identifiable {
 
 enum AppVersion {
     static var number: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.8"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.10"
     }
     static var build: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "8"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "10"
     }
 }
 
@@ -73,6 +73,7 @@ struct Preferences: Codable, Equatable {
     var favoriteSourceIDs: Set<String> = []
     var sourceOrder: [String] = []
     var mutedKeywords: [String] = []
+    var followedTopics: [String] = []
     var weatherEnabled = true
     var weatherLocationMode = WeatherLocationMode.automatic
     var weatherManualCity = ""
@@ -92,7 +93,7 @@ struct Preferences: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case notificationsEnabled, notificationSourceIDs, notificationCategoryIDs, notificationKeywords
         case quietHoursEnabled, quietHoursStart, quietHoursEnd, refreshMinutes
-        case hiddenSourceIDs, favoriteSourceIDs, sourceOrder, mutedKeywords
+        case hiddenSourceIDs, favoriteSourceIDs, sourceOrder, mutedKeywords, followedTopics
         case weatherEnabled, weatherLocationMode, weatherManualCity
         case weatherAutomaticLatitude, weatherAutomaticLongitude, weatherAutomaticName
         case theme, textSize, density
@@ -112,6 +113,7 @@ struct Preferences: Codable, Equatable {
         favoriteSourceIDs = try c.decodeIfPresent(Set<String>.self, forKey: .favoriteSourceIDs) ?? []
         sourceOrder = try c.decodeIfPresent([String].self, forKey: .sourceOrder) ?? []
         mutedKeywords = try c.decodeIfPresent([String].self, forKey: .mutedKeywords) ?? []
+        followedTopics = try c.decodeIfPresent([String].self, forKey: .followedTopics) ?? []
         weatherEnabled = try c.decodeIfPresent(Bool.self, forKey: .weatherEnabled) ?? true
         weatherLocationMode = try c.decodeIfPresent(WeatherLocationMode.self, forKey: .weatherLocationMode) ?? .automatic
         weatherManualCity = try c.decodeIfPresent(String.self, forKey: .weatherManualCity) ?? ""

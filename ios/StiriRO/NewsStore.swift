@@ -17,6 +17,9 @@ struct NewsBackup: Codable {
 final class NewsStore: ObservableObject {
     @Published var articles: [Article] = []
     @Published var articleHistory: [Article] = []
+    @Published var readingEvents: [ReadingEvent] = []
+    @Published var showTopOnly = false
+    @Published var showTopicsOnly = false
     @Published var preferences: Preferences
     @Published var savedIDs: Set<String>
     @Published var readIDs: Set<String>
@@ -55,6 +58,7 @@ final class NewsStore: ObservableObject {
         knownIDs = Set(UserDefaults.standard.stringArray(forKey: "knownIDs") ?? [])
         baselineReady = !knownIDs.isEmpty
         articleHistory = Array((Self.load([Article].self, key: "articleHistory") ?? []).prefix(2_000))
+        readingEvents = Array((Self.load([ReadingEvent].self, key: "readingEvents") ?? []).suffix(5_000))
         let defaults = UserDefaults.standard
         lastNotificationAt = defaults.object(forKey: "lastNotificationAt") as? Date ?? .now
         pendingNotifications = (defaults.data(forKey: "pendingNotifications").flatMap { try? JSONDecoder().decode([Article].self, from: $0) } ?? []).prefix(5).map { $0 }
@@ -97,8 +101,66 @@ final class NewsStore: ObservableObject {
         return names.contains { text.contains($0) }
     }
 
+    var topStories: [Article] {
+        let recent = articles.filter { $0.publishedAt > Date().addingTimeInterval(-36 * 3600) && !isMuted($0) }
+        let sorted = recent.sorted { $0.publishedAt > $1.publishedAt }
+        func words(_ title: String) -> Set<String> {
+            let stop: Set<String> = ["pentru", "despre", "aceasta", "acesta", "sunt", "este", "fost", "prin", "romania"]
+            return Set(normalized(title).components(separatedBy: CharacterSet.alphanumerics.inverted)
+                .filter { $0.count >= 4 && !stop.contains($0) })
+        }
+        var groups: [(main: Article, words: Set<String>, sources: Set<String>)] = []
+        for item in sorted {
+            let tokens = words(item.title)
+            if let index = groups.firstIndex(where: { group in
+                let overlap = group.words.intersection(tokens).count
+                return overlap >= 3 && Double(overlap) / Double(max(1, min(tokens.count, group.words.count))) >= 0.65
+            }) {
+                groups[index].sources.insert(item.sourceID)
+            } else {
+                groups.append((main: item, words: tokens, sources: [item.sourceID]))
+            }
+        }
+        let favorites = preferences.favoriteSourceIDs
+        return Array(groups.sorted { a, b in
+            let aScore = max(0, 36 - Date().timeIntervalSince(a.main.publishedAt) / 3600) +
+                Double(14 * min(4, a.sources.count - 1)) + (favorites.contains(a.main.sourceID) ? 6 : 0)
+            let bScore = max(0, 36 - Date().timeIntervalSince(b.main.publishedAt) / 3600) +
+                Double(14 * min(4, b.sources.count - 1)) + (favorites.contains(b.main.sourceID) ? 6 : 0)
+            return aScore == bScore ? a.main.publishedAt > b.main.publishedAt : aScore > bScore
+        }.prefix(10).map(\.main))
+    }
+
+    private func matchesTopics(_ article: Article) -> Bool {
+        let haystack = normalized("\(article.title) \(article.excerpt)")
+        return preferences.followedTopics.contains { topic in
+            let needle = normalized(topic)
+            return !needle.isEmpty && haystack.contains(needle)
+        }
+    }
+
+    var personalStats: (opens: Int, unique: Int, sources: [(String, Int)], categories: [(String, Int)]) {
+        let cutoff = Date().addingTimeInterval(-30 * 86400)
+        let recent = readingEvents.filter { event in
+            (PortableArticle.formatter.date(from: event.at) ?? ISO8601DateFormatter().date(from: event.at) ?? .distantPast) >= cutoff
+        }
+        let ids = Set(recent.map(\.articleId))
+        let articlesByID = Dictionary(articleHistory.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        var sourceCounts: [String: Int] = [:], categoryCounts: [String: Int] = [:]
+        for id in ids {
+            guard let a = articlesByID[id] else { continue }
+            sourceCounts[a.sourceName, default: 0] += 1
+            let category = Catalog.categories.first(where: { $0.id == a.categoryID })?.name ?? a.categoryID
+            categoryCounts[category, default: 0] += 1
+        }
+        return (recent.count, ids.count,
+                Array(sourceCounts.sorted { $0.value > $1.value }.prefix(5).map { ($0.key, $0.value) }),
+                Array(categoryCounts.sorted { $0.value > $1.value }.prefix(5).map { ($0.key, $0.value) }))
+    }
+
     var filteredArticles: [Article] {
-        let source = showHistoryOnly || showSavedOnly ? articleHistory : articles
+        let source = showHistoryOnly || showSavedOnly ? articleHistory :
+            showTopOnly ? topStories : showTopicsOnly ? articles.filter(matchesTopics) : articles
         return source.filter { article in
             if isMuted(article) { return false }
             if preferences.hiddenSourceIDs.contains(article.sourceID) { return false }
@@ -180,6 +242,7 @@ final class NewsStore: ObservableObject {
         let old = preferences
         change(&preferences)
         preferences.mutedKeywords = Array(Set(preferences.mutedKeywords.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty })).sorted().prefix(100).map { $0 }
+        preferences.followedTopics = Array(Set(preferences.followedTopics.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty })).sorted().prefix(20).map { String($0.prefix(80)) }
         persist()
         if !preferences.notificationsEnabled {
             pendingNotifications = []
@@ -200,6 +263,10 @@ final class NewsStore: ObservableObject {
     }
 
     func markRead(_ article: Article) {
+        let event = ReadingEvent(id: UUID().uuidString, articleId: article.id, at: PortableArticle.formatter.string(from: .now))
+        readingEvents.append(event)
+        readingEvents = Array(readingEvents.suffix(5_000))
+        if let data = try? encoder.encode(readingEvents) { UserDefaults.standard.set(data, forKey: "readingEvents") }
         readIDs.insert(article.id)
         UserDefaults.standard.set(Array(readIDs), forKey: "readIDs")
     }
@@ -258,6 +325,44 @@ final class NewsStore: ObservableObject {
             weatherError = error.localizedDescription
         }
         weatherLoading = false
+    }
+
+    func makeSync() throws -> Data {
+        let snapshot = SyncSnapshot(
+            app: "StiriRO-sync", formatVersion: 1, exportedAt: PortableArticle.formatter.string(from: .now),
+            followedTopics: preferences.followedTopics,
+            favoriteSourceIDs: Array(preferences.favoriteSourceIDs),
+            hiddenSourceIDs: Array(preferences.hiddenSourceIDs),
+            readIDs: Array(readIDs.prefix(2_000)),
+            savedArticles: Array(articleHistory.filter { savedIDs.contains($0.id) }.prefix(500).map(PortableArticle.init)),
+            readingEvents: Array(readingEvents.suffix(5_000))
+        )
+        let data = try encoder.encode(snapshot)
+        guard data.count <= 10 * 1024 * 1024 else { throw CocoaError(.fileWriteOutOfSpace) }
+        return data
+    }
+
+    func importSync(_ data: Data) throws {
+        guard data.count <= 10 * 1024 * 1024 else { throw CocoaError(.fileReadTooLarge) }
+        let snapshot = try decoder.decode(SyncSnapshot.self, from: data)
+        guard snapshot.app == "StiriRO-sync" && snapshot.formatVersion == 1 else { throw CocoaError(.fileReadCorruptFile) }
+        let allowedSourceIDs = Set(Catalog.sources.map(\.id))
+        preferences.followedTopics = Array(Set(preferences.followedTopics + snapshot.followedTopics.filter { !$0.isEmpty && $0.count <= 80 })).prefix(20).map { $0 }
+        preferences.favoriteSourceIDs.formUnion(snapshot.favoriteSourceIDs.filter { allowedSourceIDs.contains($0) })
+        preferences.hiddenSourceIDs.formUnion(snapshot.hiddenSourceIDs.filter { allowedSourceIDs.contains($0) })
+        let imported = Array(snapshot.savedArticles.prefix(500).compactMap { $0.article() })
+        savedIDs.formUnion(imported.map(\.id))
+        readIDs.formUnion(snapshot.readIDs.filter { !$0.isEmpty && $0.count <= 512 }.prefix(2_000))
+        var events = Dictionary(readingEvents.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        for item in snapshot.readingEvents.prefix(5_000) where !item.id.isEmpty && !item.articleId.isEmpty && item.at.count <= 35 {
+            events[item.id] = item
+        }
+        readingEvents = Array(events.values.sorted { $0.at < $1.at }.suffix(5_000))
+        UserDefaults.standard.set(Array(savedIDs.prefix(500)), forKey: "savedIDs")
+        UserDefaults.standard.set(Array(readIDs.prefix(2_000)), forKey: "readIDs")
+        if let encoded = try? encoder.encode(readingEvents) { UserDefaults.standard.set(encoded, forKey: "readingEvents") }
+        mergeHistory(imported)
+        persist()
     }
 
     func makeBackup() throws -> Data {

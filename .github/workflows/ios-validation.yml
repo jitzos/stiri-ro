@@ -4,6 +4,8 @@ on:
     paths:
       - "ios/**"
       - "test/**"
+      - "package.json"
+      - "package-lock.json"
       - "codemagic.yaml"
       - ".github/workflows/ios-validation.yml"
   workflow_dispatch:
@@ -41,7 +43,8 @@ jobs:
             build
           APP_PATH=$(find build/ios-device-verify/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -print -quit)
           test -n "$APP_PATH"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PATH/Info.plist")" = "0.0.9"
+          EXPECTED_VERSION=$(node -p "require('./package.json').version")
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PATH/Info.plist")" = "$EXPECTED_VERSION"
 
       - uses: actions/setup-node@v4
         with:

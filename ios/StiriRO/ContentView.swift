@@ -6,6 +6,7 @@ struct ContentView: View {
     @StateObject private var locationManager = AppLocationManager()
     @State private var showSettings = false
     @State private var showDigest = false
+    @State private var showStats = false
     @State private var showWeather = false
     @State private var selectedArticle: Article?
 
@@ -47,6 +48,7 @@ struct ContentView: View {
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
             .sheet(isPresented: $showDigest) { DigestSheet() }
+            .sheet(isPresented: $showStats) { PersonalStatsSheet() }
             .sheet(isPresented: $showWeather) {
                 if let weather = store.weather { WeatherSheet(report: weather) }
             }
@@ -122,9 +124,27 @@ struct ContentView: View {
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack {
-                    toggleChip("Salvate", icon: "star.fill", active: store.showSavedOnly) { store.showSavedOnly.toggle() }
+                    toggleChip("Top 10", icon: "chart.line.uptrend.xyaxis", active: store.showTopOnly) {
+                        let next = !store.showTopOnly
+                        store.showTopOnly = next
+                        if next { store.showTopicsOnly = false; store.showSavedOnly = false; store.showHistoryOnly = false }
+                    }
+                    toggleChip("Subiectele mele", icon: "number", active: store.showTopicsOnly) {
+                        let next = !store.showTopicsOnly
+                        store.showTopicsOnly = next
+                        if next { store.showTopOnly = false; store.showSavedOnly = false; store.showHistoryOnly = false }
+                    }
+                    Button { showStats = true } label: { Label("Statistici", systemImage: "chart.bar") }
+                        .buttonStyle(.bordered).controlSize(.small)
+                    toggleChip("Salvate", icon: "star.fill", active: store.showSavedOnly) {
+                        store.showSavedOnly.toggle()
+                        if store.showSavedOnly { store.showTopOnly = false; store.showTopicsOnly = false }
+                    }
                     toggleChip("Necitite", icon: "circle.fill", active: store.showUnreadOnly) { store.showUnreadOnly.toggle() }
-                    toggleChip("Istoric", icon: "clock.arrow.circlepath", active: store.showHistoryOnly) { store.showHistoryOnly.toggle() }
+                    toggleChip("Istoric", icon: "clock.arrow.circlepath", active: store.showHistoryOnly) {
+                        store.showHistoryOnly.toggle()
+                        if store.showHistoryOnly { store.showTopOnly = false; store.showTopicsOnly = false }
+                    }
                     toggleChip("Știri locale", icon: "mappin", active: store.showLocalOnly) { store.showLocalOnly.toggle() }
                     if store.showUnreadOnly {
                         Button("Marchează citite") { store.markAllVisibleRead() }.font(.caption)
@@ -195,6 +215,38 @@ struct ContentView: View {
             .buttonStyle(.bordered)
             .tint(active ? .accentColor : .secondary)
             .controlSize(.small)
+    }
+}
+
+private struct PersonalStatsSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: NewsStore
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Ultimele 30 de zile") {
+                    LabeledContent("Deschideri de articole", value: "\(store.personalStats.opens)")
+                    LabeledContent("Articole distincte", value: "\(store.personalStats.unique)")
+                    Text("Datele sunt păstrate local. Se numără deschiderile efectuate după activarea funcției.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Section("Publicații citite") {
+                    if store.personalStats.sources.isEmpty { Text("Încă nu există date.") }
+                    ForEach(Array(store.personalStats.sources.enumerated()), id: \.offset) { entry in
+                        LabeledContent(entry.element.0, value: "\(entry.element.1)")
+                    }
+                }
+                Section("Categorii citite") {
+                    if store.personalStats.categories.isEmpty { Text("Încă nu există date.") }
+                    ForEach(Array(store.personalStats.categories.enumerated()), id: \.offset) { entry in
+                        LabeledContent(entry.element.0, value: "\(entry.element.1)")
+                    }
+                }
+            }
+            .navigationTitle("Statistici personale")
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Gata") { dismiss() } } }
+        }
     }
 }
 

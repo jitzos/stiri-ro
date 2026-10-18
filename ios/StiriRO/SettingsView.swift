@@ -6,6 +6,11 @@ struct SettingsView: View {
     @EnvironmentObject private var store: NewsStore
     @State private var manualCityDraft = ""
     @State private var mutedDraft = ""
+    @State private var topicsDraft = ""
+    @State private var syncDocument: StiriBackupDocument?
+    @State private var exportingSync = false
+    @State private var importingSync = false
+    @State private var syncMessage = ""
     @State private var exportDocument: StiriBackupDocument?
     @State private var exporting = false
     @State private var importing = false
@@ -106,6 +111,35 @@ struct SettingsView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
 
+                Section("Subiectele mele") {
+                    TextField("Ex: tehnologie, inteligență artificială, Cluj", text: $topicsDraft, axis: .vertical)
+                        .lineLimit(2...4)
+                    Button("Salvează subiectele") {
+                        store.updatePreferences {
+                            $0.followedTopics = topicsDraft.split(separator: ",")
+                                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                        }
+                        topicsDraft = store.preferences.followedTopics.joined(separator: ", ")
+                    }
+                    Text("Maximum 20 de expresii. Funcția caută în titluri și descrieri.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+
+                Section("Transfer Windows–iPhone") {
+                    Text("Exportă sau importă un fișier JSON comun pentru articole salvate, citite, subiecte și statistici. Transferul este manual, nu automat.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Button("Exportă pentru Windows") {
+                        do {
+                            syncDocument = StiriBackupDocument(data: try store.makeSync())
+                            exportingSync = true
+                        } catch { syncMessage = "Exportul a eșuat." }
+                    }
+                    Button("Importă de pe Windows") { importingSync = true }
+                    if !syncMessage.isEmpty {
+                        Text(syncMessage).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+
                 Section("Surse — favorite, afișare și ordine") {
                     Text("Apasă Editare pentru a muta sursele în lista ta.")
                         .font(.caption).foregroundStyle(.secondary)
@@ -167,6 +201,24 @@ struct SettingsView: View {
             .onAppear {
                 manualCityDraft = store.preferences.weatherManualCity
                 mutedDraft = store.preferences.mutedKeywords.joined(separator: ", ")
+                topicsDraft = store.preferences.followedTopics.joined(separator: ", ")
+            }
+            .fileExporter(isPresented: $exportingSync, document: syncDocument, contentType: .json,
+                          defaultFilename: "StiriRO-sync") { result in
+                switch result {
+                case .success: syncMessage = "Fișierul de transfer a fost salvat."
+                case .failure: syncMessage = "Exportul a eșuat."
+                }
+            }
+            .fileImporter(isPresented: $importingSync, allowedContentTypes: [.json]) { result in
+                do {
+                    let url = try result.get()
+                    let granted = url.startAccessingSecurityScopedResource()
+                    defer { if granted { url.stopAccessingSecurityScopedResource() } }
+                    try store.importSync(Data(contentsOf: url))
+                    topicsDraft = store.preferences.followedTopics.joined(separator: ", ")
+                    syncMessage = "Datele au fost combinate cu cele locale."
+                } catch { syncMessage = "Fișierul de transfer este invalid." }
             }
             .fileExporter(isPresented: $exporting, document: exportDocument, contentType: .json,
                           defaultFilename: "StiriRO-iOS-backup") { result in

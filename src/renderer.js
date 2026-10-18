@@ -14,6 +14,8 @@ const state = {
   seen: new Set(readStoredArray("seenArticles")),
   saved: new Map(readStoredArray("savedArticles").filter((article) => article?.id).map((article) => [article.id, article])),
   history: new Map(readStoredArray("articleHistory").filter((article) => article?.id).map((article) => [article.id, article])),
+  readingEvents: readStoredArray("readingEvents").filter((event) => event?.id && event?.articleId && event?.at).slice(-5000),
+  newsMode: "feed",
   unreadOnly: false, savedOnly: false, localOnly: false, historySearch: false, dateRange: "all", readingStatus: "all",
   feedScrollY: 0, currentWeather: null, weatherForecast: [], hourlyWeatherForecast: [], weatherForecastView: "today"
 };
@@ -37,6 +39,16 @@ const elements = {
   digestButton: document.querySelector("#digestButton"), digestDialog: document.querySelector("#digestDialog"),
   closeDigest: document.querySelector("#closeDigestButton"), digestSubtitle: document.querySelector("#digestSubtitle"),
   digestArticles: document.querySelector("#digestArticles"),
+  topStoriesButton: document.querySelector("#topStoriesButton"),
+  followedTopicsButton: document.querySelector("#followedTopicsButton"),
+  statsButton: document.querySelector("#statsButton"),
+  statsDialog: document.querySelector("#statsDialog"), statsContent: document.querySelector("#statsContent"),
+  closeStatsButton: document.querySelector("#closeStatsButton"),
+  followedTopicsInput: document.querySelector("#followedTopicsInput"),
+  saveFollowedTopicsButton: document.querySelector("#saveFollowedTopicsButton"),
+  syncStatus: document.querySelector("#syncStatus"),
+  exportSyncButton: document.querySelector("#exportSyncButton"),
+  importSyncButton: document.querySelector("#importSyncButton"),
   settingsCard: document.querySelector("#settingsCard"), settingsBackToTop: document.querySelector("#settingsBackToTopButton"),
   weatherEnabledToggle: document.querySelector("#weatherEnabledToggle"), weatherOptions: document.querySelector("#weatherOptions"),
   automaticWeatherMode: document.querySelector("#automaticWeatherMode"), manualWeatherMode: document.querySelector("#manualWeatherMode"),
@@ -310,6 +322,12 @@ function renderUpdateStatus(status) {
 function saveSeen() { localStorage.setItem("seenArticles", JSON.stringify([...state.seen].slice(-2_000))); }
 function saveSaved() { localStorage.setItem("savedArticles", JSON.stringify([...state.saved.values()].slice(-500))); }
 function saveHistory() { localStorage.setItem("articleHistory", JSON.stringify([...state.history.values()].slice(0, 2_000))); }
+function recordReading(article) {
+  const event = { id: crypto.randomUUID(), articleId: article.id, at: new Date().toISOString() };
+  state.readingEvents.push(event);
+  state.readingEvents = state.readingEvents.slice(-5000);
+  localStorage.setItem("readingEvents", JSON.stringify(state.readingEvents));
+}
 
 function displaySources() {
   if (!state.preferences) return state.sources;
@@ -325,7 +343,10 @@ function filteredArticles() {
   const query = window.articleUtils.normalizeText(state.query.trim());
   const articles = state.savedOnly
     ? [...state.saved.values()]
-    : state.historySearch ? [...state.history.values()] : state.articles;
+    : state.historySearch ? [...state.history.values()]
+      : state.newsMode === "top" ? window.articleUtils.topStories(state.articles, state.preferences).map((item) => item.article)
+      : state.newsMode === "topics" ? state.articles.filter((item) => window.articleUtils.matchTopic(item, state.preferences.followedTopics))
+      : state.articles;
   const cutoff = state.dateRange === "all" ? null : Date.now() - Number(state.dateRange) * 24 * 60 * 60 * 1_000;
   return articles.filter((article) => {
     const sourceMatches = state.selectedSource === "all" || article.sourceId === state.selectedSource;
@@ -345,6 +366,8 @@ function filteredArticles() {
 
 function updateFeedTitle() {
   if (state.savedOnly) elements.title.textContent = "Articole salvate";
+  else if (state.newsMode === "top") elements.title.textContent = "Top 10 · știri importante";
+  else if (state.newsMode === "topics") elements.title.textContent = "Subiectele mele";
   else if (state.localOnly) elements.title.textContent = `Știri locale · ${state.preferences.weatherLocation?.name || "locație"}`;
   else if (state.historySearch) elements.title.textContent = "Căutare în istoric";
   else if (state.selectedSource !== "all") {
@@ -385,13 +408,15 @@ function renderArticles() {
     });
     button.setAttribute("aria-label", `Deschide: ${article.title}`);
     button.addEventListener("click", async () => {
-      state.seen.add(article.id); saveSeen(); card.classList.add("seen"); await openReader(article);
+      state.seen.add(article.id); saveSeen(); recordReading(article); card.classList.add("seen"); await openReader(article);
     });
     elements.grid.append(fragment);
   }
   const allDisplayed = state.savedOnly ? [...state.saved.values()] : state.articles;
   const unreadCount = allDisplayed.filter(({ id }) => !state.seen.has(id)).length;
   elements.count.textContent = `${articles.length} ${articles.length === 1 ? "articol" : "articole"}`;
+  elements.topStoriesButton.classList.toggle("active", state.newsMode === "top");
+  elements.followedTopicsButton.classList.toggle("active", state.newsMode === "topics");
   elements.savedFilter.classList.toggle("active", state.savedOnly);
   elements.savedFilter.textContent = `${state.savedOnly ? "★" : "☆"} Salvate (${state.saved.size})`;
   elements.unreadFilter.classList.toggle("active", state.unreadOnly);
@@ -473,6 +498,7 @@ function updateNotificationControls() {
 function renderSettings() {
   const preferences = state.preferences;
   elements.notificationKeywords.value = preferences.notificationKeywords;
+  elements.followedTopicsInput.value = (preferences.followedTopics || []).join(", ");
   elements.quietHoursToggle.checked = preferences.quietHoursEnabled;
   elements.quietHoursStart.value = preferences.quietHoursStart;
   elements.quietHoursEnd.value = preferences.quietHoursEnd;
@@ -557,7 +583,7 @@ async function openDailyDigest() {
     const title = document.createElement("strong"); title.textContent = article.title;
     button.append(meta, title);
     button.addEventListener("click", async () => {
-      elements.digestDialog.close(); state.seen.add(article.id); saveSeen(); await openReader(article);
+      elements.digestDialog.close(); state.seen.add(article.id); saveSeen(); recordReading(article); await openReader(article);
     });
     elements.digestArticles.append(button);
   }
@@ -577,6 +603,40 @@ function setRefreshMenuOpen(open) {
   if (open) elements.refreshNow.focus();
 }
 
+function toggleNewsMode(mode) {
+  state.newsMode = state.newsMode === mode ? "feed" : mode;
+  state.savedOnly = false;
+  state.historySearch = false;
+  elements.historySearch.checked = false;
+  renderArticles();
+}
+
+function openPersonalStats() {
+  const stats = window.articleUtils.readingStats(
+    state.readingEvents, [...state.history.values(), ...state.saved.values(), ...state.articles]
+  );
+  elements.statsContent.replaceChildren();
+  const add = (title, details) => {
+    const card = document.createElement("div");
+    card.className = "digest-article";
+    const heading = document.createElement("strong");
+    heading.textContent = title;
+    const content = document.createElement("span");
+    content.textContent = details;
+    card.append(heading, content);
+    elements.statsContent.append(card);
+  };
+  add("Articole deschise", String(stats.opens));
+  add("Articole distincte", String(stats.uniqueArticles));
+  add("Publicații citite", stats.bySource.length ? stats.bySource.map(([name, n]) => `${name}: ${n}`).join(" · ") : "Încă nu există date.");
+  add("Categorii citite", stats.byCategory.length ? stats.byCategory.map(([name, n]) => `${name}: ${n}`).join(" · ") : "Încă nu există date.");
+  elements.statsDialog.showModal();
+}
+elements.topStoriesButton.addEventListener("click", () => toggleNewsMode("top"));
+elements.followedTopicsButton.addEventListener("click", () => toggleNewsMode("topics"));
+elements.statsButton.addEventListener("click", openPersonalStats);
+elements.closeStatsButton.addEventListener("click", () => elements.statsDialog.close());
+elements.statsDialog.addEventListener("click", (event) => { if (event.target === elements.statsDialog) elements.statsDialog.close(); });
 elements.search.addEventListener("input", (event) => { state.query = event.target.value; renderArticles(); });
 elements.historySearch.addEventListener("change", (event) => { state.historySearch = event.target.checked; renderArticles(); });
 elements.dateRange.addEventListener("change", (event) => { state.dateRange = event.target.value; renderArticles(); });
@@ -689,6 +749,11 @@ elements.startupToggle.addEventListener("change", async (event) => {
 });
 elements.notificationsToggle.addEventListener("change", async (event) => { await updatePreferences({ notificationsEnabled: event.target.checked }); updateNotificationControls(); });
 elements.notificationKeywords.addEventListener("change", (event) => updatePreferences({ notificationKeywords: event.target.value }));
+elements.saveFollowedTopicsButton.addEventListener("click", async () => {
+  await updatePreferences({ followedTopics: elements.followedTopicsInput.value.split(",").map((v) => v.trim()) });
+  renderSettings();
+  renderArticles();
+});
 elements.mutedKeywords.addEventListener("change", async (event) => { await updatePreferences({ mutedKeywords: event.target.value }); renderSettings(); renderArticles(); });
 elements.quietHoursToggle.addEventListener("change", (event) => updatePreferences({ quietHoursEnabled: event.target.checked }));
 elements.quietHoursStart.addEventListener("change", (event) => updatePreferences({ quietHoursStart: event.target.value }));
@@ -700,6 +765,43 @@ elements.quickTrayRefreshInterval.addEventListener("change", async (event) => { 
 elements.themeSelect.addEventListener("change", (event) => updatePreferences({ theme: event.target.value }));
 elements.fontSizeSelect.addEventListener("change", (event) => updatePreferences({ fontSize: event.target.value }));
 elements.densitySelect.addEventListener("change", (event) => updatePreferences({ density: event.target.value }));
+elements.exportSyncButton.addEventListener("click", async () => {
+  elements.syncStatus.textContent = "Se exportă datele…";
+  const result = await window.newsApi.exportSync({
+    savedArticles: [...state.saved.values()],
+    readIDs: [...state.seen],
+    readingEvents: state.readingEvents
+  });
+  elements.syncStatus.textContent = result.ok ? "Fișierul pentru iPhone a fost salvat." : result.canceled ? "Export anulat." : result.message;
+});
+elements.importSyncButton.addEventListener("click", async () => {
+  const result = await window.newsApi.importSync();
+  if (!result.ok) { elements.syncStatus.textContent = result.canceled ? "Import anulat." : result.message; return; }
+  const data = result.snapshot;
+  for (const item of data.savedArticles) {
+    const article = {
+      id: item.id, title: item.title, link: item.link, excerpt: item.excerpt,
+      publishedAt: item.publishedAt, image: item.imageURL,
+      sourceId: item.sourceID, sourceName: item.sourceName,
+      categoryId: item.categoryID, categoryName: state.categories.find((c) => c.id === item.categoryID)?.name || ""
+    };
+    state.saved.set(article.id, article);
+    state.history.set(article.id, article);
+  }
+  for (const id of data.readIDs) state.seen.add(id);
+  const events = new Map(state.readingEvents.map((event) => [event.id, event]));
+  for (const event of data.readingEvents) events.set(event.id, event);
+  state.readingEvents = [...events.values()].slice(-5000);
+  localStorage.setItem("readingEvents", JSON.stringify(state.readingEvents));
+  saveSaved(); saveSeen(); saveHistory();
+  await updatePreferences({
+    followedTopics: [...new Set([...state.preferences.followedTopics, ...data.followedTopics])],
+    favoriteSourceIds: [...new Set([...state.preferences.favoriteSourceIds, ...data.favoriteSourceIDs])],
+    hiddenSourceIds: [...new Set([...state.preferences.hiddenSourceIds, ...data.hiddenSourceIDs])]
+  });
+  renderSettings(); renderFilters(); renderArticles();
+  elements.syncStatus.textContent = "Datele au fost combinate cu cele existente. Nimic nu s-a șters.";
+});
 elements.exportBackup.addEventListener("click", async () => {
   elements.backupStatus.textContent = "Se exportă backupul…";
   const result = await window.newsApi.exportBackup({
