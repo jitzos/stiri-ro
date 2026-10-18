@@ -158,7 +158,7 @@ actor WeatherService {
 }
 
 @MainActor
-final class AppLocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
+final class AppLocationManager: NSObject, ObservableObject, @preconcurrency CLLocationManagerDelegate {
     @Published var coordinate: CLLocationCoordinate2D?
     @Published var errorMessage: String?
     private let manager = CLLocationManager()
