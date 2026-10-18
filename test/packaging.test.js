@@ -88,6 +88,7 @@ test("feed includes a Romanian back-to-top control", () => {
   assert.match(renderer, /window\.scrollTo\(\{ top: 0, behavior: preferredScrollBehavior\(\) \}\)/);
   assert.match(renderer, /prefers-reduced-motion/);
   assert.match(styles, /\.back-to-top[\s\S]*position: fixed/);
+  assert.match(styles, /\.back-to-top[\s\S]*right: 10px[\s\S]*background: #c83e35/);
 });
 
 test("settings include their own Romanian back-to-top control", () => {
@@ -99,6 +100,7 @@ test("settings include their own Romanian back-to-top control", () => {
   assert.match(renderer, /settingsCard\.scrollTo\(\{ top: 0, behavior: preferredScrollBehavior\(\) \}\)/);
   assert.match(renderer, /settingsCard\.addEventListener\("scroll"/);
   assert.match(styles, /\.settings-back-to-top[\s\S]*position: absolute/);
+  assert.match(styles, /\.settings-back-to-top[\s\S]*right: 8px[\s\S]*background: #c83e35/);
 });
 
 test("header refresh button opens synchronized refresh options", () => {

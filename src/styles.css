@@ -486,17 +486,17 @@ main { padding: 20px clamp(28px, 5vw, 76px) 60px; }
 .back-to-top {
   position: fixed;
   z-index: 10;
-  right: 24px;
-  bottom: 24px;
+  right: 10px;
+  bottom: 16px;
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 10px 15px;
-  color: var(--accent-text);
+  padding: 9px 12px;
+  color: #fff;
   font-size: 12px;
   font-weight: 800;
-  background: var(--accent);
-  border: 1px solid color-mix(in srgb, var(--accent) 82%, white);
+  background: #c83e35;
+  border: 1px solid #f08a82;
   border-radius: 999px;
   box-shadow: 0 8px 24px rgba(8, 28, 18, .26);
   cursor: pointer;
@@ -511,17 +511,17 @@ main { padding: 20px clamp(28px, 5vw, 76px) 60px; }
 .settings-back-to-top {
   position: absolute;
   z-index: 2;
-  right: 18px;
-  bottom: 18px;
+  right: 8px;
+  bottom: 12px;
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 9px 14px;
-  color: var(--accent-text);
+  padding: 8px 11px;
+  color: #fff;
   font-size: 12px;
   font-weight: 800;
-  background: var(--accent);
-  border: 1px solid color-mix(in srgb, var(--accent) 82%, white);
+  background: #c83e35;
+  border: 1px solid #f08a82;
   border-radius: 999px;
   box-shadow: 0 8px 24px rgba(8, 28, 18, .28);
   cursor: pointer;
@@ -555,5 +555,5 @@ main { padding: 20px clamp(28px, 5vw, 76px) 60px; }
   .check-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .select-grid,
   .select-grid.three-columns { grid-template-columns: 1fr; }
-  .back-to-top { right: 16px; bottom: 16px; }
+  .back-to-top { right: 8px; bottom: 12px; }
 }
