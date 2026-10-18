@@ -233,14 +233,14 @@ private struct PersonalStatsSheet: View {
                 }
                 Section("Publicații citite") {
                     if store.personalStats.sources.isEmpty { Text("Încă nu există date.") }
-                    ForEach(store.personalStats.sources, id: \.0) { item in
-                        LabeledContent(item.0, value: "\(item.1)")
+                    ForEach(Array(store.personalStats.sources.enumerated()), id: \.offset) { entry in
+                        LabeledContent(entry.element.0, value: "\(entry.element.1)")
                     }
                 }
                 Section("Categorii citite") {
                     if store.personalStats.categories.isEmpty { Text("Încă nu există date.") }
-                    ForEach(store.personalStats.categories, id: \.0) { item in
-                        LabeledContent(item.0, value: "\(item.1)")
+                    ForEach(Array(store.personalStats.categories.enumerated()), id: \.offset) { entry in
+                        LabeledContent(entry.element.0, value: "\(entry.element.1)")
                     }
                 }
             }
