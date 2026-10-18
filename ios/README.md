@@ -1,8 +1,8 @@
-# Știri RO pentru iPhone — v0.0.8
+# Știri RO pentru iPhone — v0.0.9
 
 Aplicație SwiftUI nativă pentru iOS 16.4 sau mai nou. Proiectul Xcode este generat din `project.yml`, iar `codemagic.yaml` produce o arhivă IPA nesemnată pentru instalare cu Sideloadly.
 
-## Funcții comune cu Windows 0.0.8
+## Funcții comune cu Windows 0.0.9
 
 - Cele 24 de fluxuri RSS, filtre pe sursă/categorie, căutare, știri salvate și marcaj citit/necitit.
 - Istoric local cu cel mult 2.000 de articole, căutare cu diacritice ignorate și filtrare pe perioadă.
