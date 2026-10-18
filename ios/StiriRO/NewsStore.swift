@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import CoreLocation
 import UserNotifications
 
@@ -24,6 +25,8 @@ final class NewsStore: ObservableObject {
     @Published var showSavedOnly = false
     @Published var showUnreadOnly = false
     @Published var showHistoryOnly = false
+    @Published var historyStartDate = Calendar.current.date(byAdding: .day, value: -7, to: .now) ?? .now
+    @Published var historyEndDate = Date()
     @Published var showLocalOnly = false
     @Published var searchText = ""
     @Published var isLoading = false
@@ -98,6 +101,11 @@ final class NewsStore: ObservableObject {
         let source = showHistoryOnly || showSavedOnly ? articleHistory : articles
         return source.filter { article in
             if isMuted(article) { return false }
+            if showHistoryOnly {
+                let calendar = Calendar.current
+                guard let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: historyEndDate)) else { return false }
+                if article.publishedAt < calendar.startOfDay(for: historyStartDate) || article.publishedAt >= end { return false }
+            }
             if let selectedSourceID, article.sourceID != selectedSourceID { return false }
             if let selectedCategoryID, article.categoryID != selectedCategoryID { return false }
             if showSavedOnly && !savedIDs.contains(article.id) { return false }
@@ -157,7 +165,7 @@ final class NewsStore: ObservableObject {
     }
 
     private func mergeHistory(_ incoming: [Article]) {
-        var byID = Dictionary(uniqueKeysWithValues: articleHistory.map { ($0.id, $0) })
+        var byID = Dictionary(articleHistory.map { ($0.id, $0) }, uniquingKeysWith: { current, _ in current })
         for article in incoming { byID[article.id] = article }
         articleHistory = Array(byID.values.sorted { $0.publishedAt > $1.publishedAt }.prefix(2_000))
         persistHistory()
