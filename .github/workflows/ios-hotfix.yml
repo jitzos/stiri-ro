@@ -1,0 +1,55 @@
+name: Rebuild iOS Sideloadly IPA
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ios-hotfix:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[publish-ios-hotfix]')
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: cd ios && xcodegen generate --spec project.yml
+      - name: Build unsigned iPhoneOS application
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ios/StiriRO.xcodeproj \
+            -scheme StiriRO \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build/ios \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+      - name: Package and inspect Sideloadly IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          APP_PATH=$(find build/ios/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -print -quit)
+          test "$(basename "$APP_PATH")" = "StiriRO.app"
+          mkdir -p build/ipa/Payload
+          cp -R "$APP_PATH" build/ipa/Payload/
+          (cd build/ipa && /usr/bin/zip -qry "../StiriRO-unsigned-$VERSION.ipa" Payload)
+          bash scripts/verify-ios-ipa.sh "build/StiriRO-unsigned-$VERSION.ipa" "$VERSION"
+      - name: Replace only the iOS asset in the existing release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY"
+          gh release upload "v$VERSION" "build/StiriRO-unsigned-$VERSION.ipa" --repo "$GITHUB_REPOSITORY" --clobber
