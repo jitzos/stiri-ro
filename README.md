@@ -44,8 +44,7 @@ npm run package:win
 ```
 
 Installerul NSIS va fi creat în `release/installer/StiriRO-Setup-<versiune>.exe`.
-La instalare, utilizatorul poate alege dacă aplicația pornește odată cu Windows.
-Setarea poate fi schimbată ulterior din **Setări → Pornește odată cu Windows**.
+Pornirea odată cu Windows este administrată exclusiv din **Setări → Pornește odată cu Windows**.
 
 Buildul generează și metadatele necesare actualizării prin GitHub Releases.
 Aplicația verifică automat actualizările la pornire și apoi la fiecare 6 ore.
@@ -56,8 +55,8 @@ Din **Setări → Actualizări**, utilizatorul poate verifica, descărca și ins
 Actualizează câmpul `version` din `package.json`, apoi creează și publică un tag cu aceeași versiune:
 
 ```bash
-git tag v0.0.5
-git push origin v0.0.5
+git tag v0.0.6
+git push origin v0.0.6
 ```
 
 Workflow-ul GitHub Actions testează proiectul, construiește installerul Windows și publică automat release-ul și metadatele folosite de updater.

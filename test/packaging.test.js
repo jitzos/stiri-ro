@@ -79,14 +79,15 @@ test("reader settings include refresh, sources, saved articles, unread and appea
   assert.match(renderer, /openArticle\(article\.link\)/);
 });
 
-test("installer offers login startup and removes it on uninstall", () => {
+test("startup is managed only by the app and removed on uninstall", () => {
   const installer = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf8");
+  const main = fs.readFileSync(path.join(root, "src", "main.js"), "utf8");
 
-  assert.match(installer, /Pornește Știri RO când mă conectez la Windows/);
-  assert.match(installer, /FileExists.*APP_PRODUCT_FILENAME/);
-  assert.doesNotMatch(installer, /isUpdated/);
-  assert.doesNotMatch(installer, /MUI_HEADER_TEXT/);
-  assert.match(installer, /WriteRegStr HKCU .*CurrentVersion\\Run/);
-  assert.match(installer, /--hidden/);
+  assert.doesNotMatch(installer, /WriteRegStr HKCU/);
+  assert.doesNotMatch(installer, /StartAtLoginCheckbox/);
   assert.match(installer, /customUnInstall[\s\S]*DeleteRegValue HKCU/);
+  assert.match(main, /requestSingleInstanceLock/);
+  assert.match(main, /second-instance/);
+  assert.match(main, /LEGACY_LOGIN_ITEM_NAME/);
+  assert.match(main, /name,\s*path: process\.execPath,\s*args: LOGIN_ARGS/);
 });

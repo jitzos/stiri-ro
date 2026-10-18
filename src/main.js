@@ -24,6 +24,8 @@ const knownArticleIds = new Set();
 
 const ARTICLE_TOOLBAR_HEIGHT = 58;
 const LOGIN_ARGS = ["--hidden"];
+const LOGIN_ITEM_NAME = "ro.stiriro.desktop";
+const LEGACY_LOGIN_ITEM_NAME = "Știri RO";
 const startHidden = process.argv.includes("--hidden");
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 let updateTimer = null;
@@ -57,6 +59,34 @@ function savePreferences(patch) {
   fs.mkdirSync(path.dirname(preferencesPath()), { recursive: true });
   fs.writeFileSync(preferencesPath(), `${JSON.stringify(preferences, null, 2)}\n`, "utf8");
   return preferences;
+}
+
+function loginItemSettings(name = LOGIN_ITEM_NAME) {
+  return {
+    name,
+    path: process.execPath,
+    args: LOGIN_ARGS
+  };
+}
+
+function migrateLegacyLoginItem() {
+  if (process.platform !== "win32" || !app.isPackaged) return;
+
+  const { launchItems = [] } = app.getLoginItemSettings(loginItemSettings());
+  const legacyItem = launchItems.find(({ name }) => name === LEGACY_LOGIN_ITEM_NAME);
+  if (!legacyItem) return;
+
+  if (legacyItem.enabled) {
+    app.setLoginItemSettings({
+      ...loginItemSettings(),
+      openAtLogin: true
+    });
+  }
+
+  app.setLoginItemSettings({
+    ...loginItemSettings(LEGACY_LOGIN_ITEM_NAME),
+    openAtLogin: false
+  });
 }
 
 function notifyAboutNewArticles(articles) {
@@ -319,7 +349,7 @@ ipcMain.handle("settings:get-start-at-login", () => {
   return {
     supported,
     enabled: supported
-      ? app.getLoginItemSettings({ path: process.execPath, args: LOGIN_ARGS }).openAtLogin
+      ? app.getLoginItemSettings(loginItemSettings()).openAtLogin
       : false
   };
 });
@@ -328,14 +358,13 @@ ipcMain.handle("settings:set-start-at-login", (_event, enabled) => {
   if (!supported) return { supported, enabled: false };
 
   app.setLoginItemSettings({
+    ...loginItemSettings(),
     openAtLogin: Boolean(enabled),
-    path: process.execPath,
-    args: LOGIN_ARGS
   });
 
   return {
     supported,
-    enabled: app.getLoginItemSettings({ path: process.execPath, args: LOGIN_ARGS }).openAtLogin
+    enabled: app.getLoginItemSettings(loginItemSettings()).openAtLogin
   };
 });
 ipcMain.handle("settings:get-preferences", () => ({
@@ -376,15 +405,26 @@ ipcMain.handle("article:close", () => {
 
 app.setAppUserModelId("ro.stiriro.desktop");
 
-app.whenReady().then(() => {
-  preferences = loadPreferences();
-  refreshMode = startHidden ? "tray" : "foreground";
-  createTray();
-  createWindow();
-  scheduleRefresh(refreshMode);
-  initializeUpdater();
-  app.on("activate", showWindow);
-});
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", (_event, commandLine) => {
+    if (!commandLine.includes("--hidden")) showWindow();
+  });
+
+  app.whenReady().then(() => {
+    migrateLegacyLoginItem();
+    preferences = loadPreferences();
+    refreshMode = startHidden ? "tray" : "foreground";
+    createTray();
+    createWindow();
+    scheduleRefresh(refreshMode);
+    initializeUpdater();
+    app.on("activate", showWindow);
+  });
+}
 
 app.on("before-quit", () => {
   isQuitting = true;
