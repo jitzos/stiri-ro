@@ -25,6 +25,24 @@ jobs:
             -sdk iphonesimulator \
             -derivedDataPath build/ios-verify \
             CODE_SIGNING_ALLOWED=NO build
+      - name: Build unsigned iPhoneOS app (release preflight)
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ios/StiriRO.xcodeproj \
+            -scheme StiriRO \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build/ios-device-verify \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+          APP_PATH=$(find build/ios-device-verify/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -print -quit)
+          test -n "$APP_PATH"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PATH/Info.plist")" = "0.0.9"
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
