@@ -14,7 +14,7 @@ test("Top 10 is bounded, deduplicates near-identical headlines and excludes mute
     article("a", "Guvernul anunță măsuri economice pentru sectorul energetic", "digi24"),
     article("b", "Guvernul anunță măsuri economice pentru sectorul energetic astăzi", "hotnews"),
     article("c", "Horoscopul zilei pentru toate zodiile", "libertatea"),
-    ...["astronomie", "agricultura", "educatie", "infrastructura", "energie", "medicina", "transport", "cultura", "economie", "justitie", "turism", "stiinta", "sport"].map((topic, n) => article(`z${n}`, `Actualitate importanta pentru ${topic} romanesc astazi`, `s${n}`, 2))
+    ...["planete saturn astronomi observator", "recolta grau fermieri irigatii", "elevi scoala examene profesori", "autostrada tunel poduri constructii", "electricitate turbine panouri solare", "spitale pacienti vaccin chirurgie", "feroviar trenuri gara locomotive", "teatru festival expozitie muzeu", "finantare investitii bursa credite", "magistrati instante sentinte procese", "calatori munte hotel vacanta", "cercetatori experiment laborator fizica", "fotbal jucatori campionat antrenor"].map((topic, n) => article(`z${n}`, topic, `s${n}`, 2))
   ];
   const ranked = topStories(stories, { mutedKeywords: ["horoscop"], favoriteSourceIds: [] }, 10, at);
   assert.equal(ranked.length, 10);
