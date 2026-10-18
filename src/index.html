@@ -30,9 +30,31 @@
         <button id="settingsButton" class="settings-button" type="button" aria-haspopup="dialog">
           <span aria-hidden="true">⚙</span> Setări
         </button>
-        <button id="refreshButton" class="refresh-button" type="button">
-          <span aria-hidden="true">↻</span> Actualizează
-        </button>
+        <div class="refresh-menu-wrap">
+          <button id="refreshButton" class="refresh-button" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="refreshMenu">
+            <span aria-hidden="true">↻</span> Actualizează <span class="menu-caret" aria-hidden="true">▾</span>
+          </button>
+          <div id="refreshMenu" class="refresh-menu" role="dialog" aria-label="Opțiuni de actualizare" hidden>
+            <strong>Actualizare știri</strong>
+            <button id="refreshNowButton" class="refresh-now-button" type="button">
+              <span aria-hidden="true">↻</span> Actualizează acum
+            </button>
+            <label>
+              Când aplicația este deschisă
+              <select id="quickRefreshInterval">
+                <option value="5">La 5 minute</option><option value="10">La 10 minute</option>
+                <option value="15">La 15 minute</option><option value="30">La 30 de minute</option><option value="60">La 60 de minute</option>
+              </select>
+            </label>
+            <label>
+              Când aplicația este în tray
+              <select id="quickTrayRefreshInterval">
+                <option value="5">La 5 minute</option><option value="10">La 10 minute</option>
+                <option value="15">La 15 minute</option><option value="30">La 30 de minute</option><option value="60">La 60 de minute</option>
+              </select>
+            </label>
+          </div>
+        </div>
       </div>
     </header>
 

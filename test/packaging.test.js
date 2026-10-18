@@ -101,6 +101,19 @@ test("settings include their own Romanian back-to-top control", () => {
   assert.match(styles, /\.settings-back-to-top[\s\S]*position: absolute/);
 });
 
+test("header refresh button opens synchronized refresh options", () => {
+  const html = fs.readFileSync(path.join(root, "src", "index.html"), "utf8");
+  const renderer = fs.readFileSync(path.join(root, "src", "renderer.js"), "utf8");
+
+  for (const id of ["refreshMenu", "refreshNowButton", "quickRefreshInterval", "quickTrayRefreshInterval"]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  assert.match(html, /Opțiuni de actualizare/);
+  assert.match(renderer, /setRefreshMenuOpen/);
+  assert.match(renderer, /quickRefreshInterval\.value = String\(preferences\.refreshIntervalMinutes\)/);
+  assert.match(renderer, /quickTrayRefreshInterval\.value = String\(preferences\.trayRefreshIntervalMinutes\)/);
+});
+
 test("startup is managed only by the app and removed on uninstall", () => {
   const installer = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf8");
   const main = fs.readFileSync(path.join(root, "src", "main.js"), "utf8");

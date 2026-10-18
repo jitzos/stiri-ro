@@ -20,6 +20,8 @@ const elements = {
   grid: document.querySelector("#articleGrid"), template: document.querySelector("#articleTemplate"),
   filters: document.querySelector("#sourceFilters"), categoryFilters: document.querySelector("#categoryFilters"),
   search: document.querySelector("#searchInput"), refresh: document.querySelector("#refreshButton"),
+  refreshMenu: document.querySelector("#refreshMenu"), refreshNow: document.querySelector("#refreshNowButton"),
+  quickRefreshInterval: document.querySelector("#quickRefreshInterval"), quickTrayRefreshInterval: document.querySelector("#quickTrayRefreshInterval"),
   settingsButton: document.querySelector("#settingsButton"), settingsDialog: document.querySelector("#settingsDialog"),
   settingsCard: document.querySelector("#settingsCard"), settingsBackToTop: document.querySelector("#settingsBackToTopButton"),
   trayToggle: document.querySelector("#trayToggle"), startupToggle: document.querySelector("#startupToggle"),
@@ -262,6 +264,8 @@ function renderSettings() {
   elements.quietHoursEnd.value = preferences.quietHoursEnd;
   elements.refreshInterval.value = String(preferences.refreshIntervalMinutes);
   elements.trayRefreshInterval.value = String(preferences.trayRefreshIntervalMinutes);
+  elements.quickRefreshInterval.value = String(preferences.refreshIntervalMinutes);
+  elements.quickTrayRefreshInterval.value = String(preferences.trayRefreshIntervalMinutes);
   elements.themeSelect.value = preferences.theme;
   elements.fontSizeSelect.value = preferences.fontSize;
   elements.densitySelect.value = preferences.density;
@@ -312,14 +316,25 @@ function applyFeedResult(result) {
 }
 
 async function refresh() {
-  elements.refresh.disabled = true; elements.status.textContent = "Se actualizează fluxurile…"; elements.errors.hidden = true;
+  elements.refresh.disabled = true; elements.refreshNow.disabled = true; elements.status.textContent = "Se actualizează fluxurile…"; elements.errors.hidden = true;
   try { applyFeedResult(await window.newsApi.refresh()); }
   catch { elements.status.textContent = "Actualizarea nu a reușit."; elements.errors.textContent = "Verifică legătura la internet și încearcă din nou."; elements.errors.hidden = false; }
-  finally { elements.refresh.disabled = false; }
+  finally { elements.refresh.disabled = false; elements.refreshNow.disabled = false; }
+}
+
+function setRefreshMenuOpen(open) {
+  elements.refreshMenu.hidden = !open;
+  elements.refresh.setAttribute("aria-expanded", String(open));
+  if (open) elements.refreshNow.focus();
 }
 
 elements.search.addEventListener("input", (event) => { state.query = event.target.value; renderArticles(); });
-elements.refresh.addEventListener("click", refresh);
+elements.refresh.addEventListener("click", () => setRefreshMenuOpen(elements.refreshMenu.hidden));
+elements.refreshNow.addEventListener("click", async () => { setRefreshMenuOpen(false); await refresh(); });
+document.addEventListener("click", (event) => {
+  if (!elements.refreshMenu.hidden && !event.target.closest(".refresh-menu-wrap")) setRefreshMenuOpen(false);
+});
+document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !elements.refreshMenu.hidden) setRefreshMenuOpen(false); });
 elements.settingsButton.addEventListener("click", () => {
   elements.settingsDialog.showModal();
   updateSettingsBackToTopVisibility();
@@ -354,8 +369,10 @@ elements.notificationKeywords.addEventListener("change", (event) => updatePrefer
 elements.quietHoursToggle.addEventListener("change", (event) => updatePreferences({ quietHoursEnabled: event.target.checked }));
 elements.quietHoursStart.addEventListener("change", (event) => updatePreferences({ quietHoursStart: event.target.value }));
 elements.quietHoursEnd.addEventListener("change", (event) => updatePreferences({ quietHoursEnd: event.target.value }));
-elements.refreshInterval.addEventListener("change", async (event) => { await updatePreferences({ refreshIntervalMinutes: Number(event.target.value) }); renderArticles(); });
-elements.trayRefreshInterval.addEventListener("change", (event) => updatePreferences({ trayRefreshIntervalMinutes: Number(event.target.value) }));
+elements.refreshInterval.addEventListener("change", async (event) => { await updatePreferences({ refreshIntervalMinutes: Number(event.target.value) }); renderSettings(); renderArticles(); });
+elements.trayRefreshInterval.addEventListener("change", async (event) => { await updatePreferences({ trayRefreshIntervalMinutes: Number(event.target.value) }); renderSettings(); });
+elements.quickRefreshInterval.addEventListener("change", async (event) => { await updatePreferences({ refreshIntervalMinutes: Number(event.target.value) }); renderSettings(); renderArticles(); });
+elements.quickTrayRefreshInterval.addEventListener("change", async (event) => { await updatePreferences({ trayRefreshIntervalMinutes: Number(event.target.value) }); renderSettings(); });
 elements.themeSelect.addEventListener("change", (event) => updatePreferences({ theme: event.target.value }));
 elements.fontSizeSelect.addEventListener("change", (event) => updatePreferences({ fontSize: event.target.value }));
 elements.densitySelect.addEventListener("change", (event) => updatePreferences({ density: event.target.value }));
