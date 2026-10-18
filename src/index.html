@@ -75,17 +75,24 @@
             <span class="sr-only">Caută în titluri</span>
             <input id="searchInput" type="search" placeholder="Caută în titluri…" />
           </label>
-          <section id="weatherWidget" class="weather-widget" aria-label="Vreme locală" aria-live="polite" hidden>
+          <button id="weatherWidget" class="weather-widget" type="button" aria-label="Vreme locală. Deschide prognoza pe 5 zile" aria-live="polite" aria-haspopup="dialog" aria-expanded="false" aria-controls="weatherForecast" hidden>
             <span id="weatherIcon" class="weather-icon" aria-hidden="true">🌤️</span>
-            <div class="weather-reading">
+            <span class="weather-reading">
               <strong id="weatherTemperature">--°C</strong>
               <span id="weatherDescription">Se încarcă vremea…</span>
-            </div>
-            <div class="weather-place">
+            </span>
+            <span class="weather-place">
               <strong id="weatherLocation">Locația curentă</strong>
               <span id="weatherDetails"></span>
+            </span>
+          </button>
+          <div id="weatherForecast" class="weather-forecast" role="dialog" aria-label="Prognoza meteo pe 5 zile" hidden>
+            <div class="forecast-heading">
+              <strong>Prognoza pe 5 zile</strong>
+              <button id="closeWeatherForecastButton" type="button" aria-label="Închide prognoza">×</button>
             </div>
-          </section>
+            <div id="weatherForecastDays" class="forecast-days"></div>
+          </div>
         </div>
       </section>
 

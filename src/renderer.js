@@ -13,7 +13,7 @@ const state = {
   minimizeToTray: localStorage.getItem("minimizeToTray") !== "false",
   seen: new Set(readStoredArray("seenArticles")),
   saved: new Map(readStoredArray("savedArticles").filter((article) => article?.id).map((article) => [article.id, article])),
-  unreadOnly: false, savedOnly: false, feedScrollY: 0
+  unreadOnly: false, savedOnly: false, feedScrollY: 0, weatherForecast: []
 };
 
 const elements = {
@@ -23,6 +23,8 @@ const elements = {
   weatherWidget: document.querySelector("#weatherWidget"), weatherIcon: document.querySelector("#weatherIcon"),
   weatherTemperature: document.querySelector("#weatherTemperature"), weatherDescription: document.querySelector("#weatherDescription"),
   weatherLocation: document.querySelector("#weatherLocation"), weatherDetails: document.querySelector("#weatherDetails"),
+  weatherForecast: document.querySelector("#weatherForecast"), weatherForecastDays: document.querySelector("#weatherForecastDays"),
+  closeWeatherForecast: document.querySelector("#closeWeatherForecastButton"),
   refreshMenu: document.querySelector("#refreshMenu"), refreshNow: document.querySelector("#refreshNowButton"),
   quickRefreshInterval: document.querySelector("#quickRefreshInterval"), quickTrayRefreshInterval: document.querySelector("#quickTrayRefreshInterval"),
   settingsButton: document.querySelector("#settingsButton"), settingsDialog: document.querySelector("#settingsDialog"),
@@ -74,6 +76,8 @@ function showWeatherMessage(message) {
   elements.weatherDescription.textContent = message;
   elements.weatherLocation.textContent = state.preferences.weatherLocation?.name || "Locație neconfigurată";
   elements.weatherDetails.textContent = "";
+  state.weatherForecast = [];
+  setWeatherForecastOpen(false);
 }
 
 function renderWeather(weather) {
@@ -83,6 +87,34 @@ function renderWeather(weather) {
   elements.weatherDescription.textContent = weather.description;
   elements.weatherLocation.textContent = weather.location.name;
   elements.weatherDetails.textContent = `Se simt ${Math.round(weather.feelsLike)}° · vânt ${Math.round(weather.windSpeed)} km/h`;
+  state.weatherForecast = Array.isArray(weather.forecast) ? weather.forecast : [];
+}
+
+function renderWeatherForecast() {
+  elements.weatherForecastDays.replaceChildren();
+  if (state.weatherForecast.length === 0) {
+    const message = document.createElement("p");
+    message.className = "forecast-unavailable";
+    message.textContent = "Prognoza nu este disponibilă momentan.";
+    elements.weatherForecastDays.append(message);
+    return;
+  }
+
+  const formatter = new Intl.DateTimeFormat("ro-RO", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+  for (const day of state.weatherForecast) {
+    const item = document.createElement("article"); item.className = "forecast-day";
+    const date = document.createElement("time"); date.dateTime = day.date; date.textContent = formatter.format(new Date(`${day.date}T12:00:00Z`));
+    const icon = document.createElement("span"); icon.className = "forecast-icon"; icon.textContent = day.icon; icon.setAttribute("aria-hidden", "true");
+    const temperatures = document.createElement("strong"); temperatures.textContent = `${Math.round(day.maximum)}° / ${Math.round(day.minimum)}°`;
+    const description = document.createElement("small"); description.textContent = `${day.description} · ploaie ${Math.round(day.precipitationChance)}%`;
+    item.append(date, icon, temperatures, description); elements.weatherForecastDays.append(item);
+  }
+}
+
+function setWeatherForecastOpen(open) {
+  elements.weatherForecast.hidden = !open;
+  elements.weatherWidget.setAttribute("aria-expanded", String(open));
+  if (open) renderWeatherForecast();
 }
 
 async function loadWeather(location = state.preferences.weatherLocation) {
@@ -430,12 +462,19 @@ function setRefreshMenuOpen(open) {
 }
 
 elements.search.addEventListener("input", (event) => { state.query = event.target.value; renderArticles(); });
+elements.weatherWidget.addEventListener("click", () => setWeatherForecastOpen(elements.weatherForecast.hidden));
+elements.closeWeatherForecast.addEventListener("click", () => { setWeatherForecastOpen(false); elements.weatherWidget.focus(); });
 elements.refresh.addEventListener("click", () => setRefreshMenuOpen(elements.refreshMenu.hidden));
 elements.refreshNow.addEventListener("click", async () => { setRefreshMenuOpen(false); await refresh(); });
 document.addEventListener("click", (event) => {
   if (!elements.refreshMenu.hidden && !event.target.closest(".refresh-menu-wrap")) setRefreshMenuOpen(false);
+  if (!elements.weatherForecast.hidden && !event.target.closest(".search-weather")) setWeatherForecastOpen(false);
 });
-document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !elements.refreshMenu.hidden) setRefreshMenuOpen(false); });
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if (!elements.refreshMenu.hidden) setRefreshMenuOpen(false);
+  if (!elements.weatherForecast.hidden) setWeatherForecastOpen(false);
+});
 elements.settingsButton.addEventListener("click", () => {
   elements.settingsDialog.showModal();
   updateSettingsBackToTopVisibility();
@@ -460,7 +499,7 @@ elements.trayToggle.addEventListener("change", async (event) => {
 elements.weatherEnabledToggle.addEventListener("change", async (event) => {
   await updatePreferences({ weatherEnabled: event.target.checked });
   renderSettings();
-  if (!event.target.checked) elements.weatherWidget.hidden = true;
+  if (!event.target.checked) { elements.weatherWidget.hidden = true; setWeatherForecastOpen(false); }
   else if (state.preferences.weatherLocation) loadWeather();
   else if (state.preferences.weatherLocationMode === "automatic") requestAutomaticLocation();
   else showWeatherMessage("Scrie localitatea în Setări");

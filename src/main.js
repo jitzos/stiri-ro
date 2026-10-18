@@ -9,7 +9,7 @@ const {
   filterNotificationArticles
 } = require("./notification-utils");
 const { normalizePreferences, orderedSources } = require("./preferences");
-const { fetchWeather } = require("./weather");
+const { fetchForecast, fetchWeather } = require("./weather");
 
 let mainWindow = null;
 let tray = null;
@@ -342,7 +342,13 @@ ipcMain.handle("categories:list", () => CATEGORIES);
 ipcMain.handle("feeds:refresh", () => refreshFeeds());
 ipcMain.handle("weather:get", async (_event, location) => {
   try {
-    return { ok: true, weather: await fetchWeather(location) };
+    const weather = await fetchWeather(location);
+    try {
+      weather.forecast = await fetchForecast(weather.location);
+    } catch {
+      weather.forecast = [];
+    }
+    return { ok: true, weather };
   } catch {
     return { ok: false, message: "Vremea nu a putut fi încărcată." };
   }

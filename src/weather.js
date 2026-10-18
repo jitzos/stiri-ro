@@ -22,6 +22,18 @@ function describeWeather(code) {
   return ["Vreme variabilă", "🌤️"];
 }
 
+function describeForecastWeather(code) {
+  const numericCode = Number(code);
+  if (numericCode === 0) return ["Senin", "☀️"];
+  if ([1, 2].includes(numericCode)) return ["Parțial noros", "⛅"];
+  if (numericCode === 3) return ["Cer acoperit", "☁️"];
+  if ([45, 48].includes(numericCode)) return ["Ceață", "🌫️"];
+  if (numericCode >= 51 && numericCode <= 67 || numericCode >= 80 && numericCode <= 82) return ["Ploaie", "🌧️"];
+  if (numericCode >= 71 && numericCode <= 77 || numericCode >= 85 && numericCode <= 86) return ["Ninsoare", "❄️"];
+  if (numericCode >= 95) return ["Furtună", "⛈️"];
+  return ["Vreme variabilă", "🌤️"];
+}
+
 function localizedValue(field) {
   return Array.isArray(field) && typeof field[0]?.value === "string" ? field[0].value.trim() : "";
 }
@@ -72,4 +84,37 @@ async function fetchWeather(location, fetchImplementation = fetch) {
   return parseWeatherPayload(await response.json());
 }
 
-module.exports = { describeWeather, fetchWeather, parseWeatherPayload };
+function parseForecastPayload(payload) {
+  const daily = payload?.daily;
+  if (!Array.isArray(daily?.time) || daily.time.length < 5) throw new Error("Prognoză meteo invalidă");
+
+  return daily.time.slice(0, 5).map((date, index) => {
+    const [description, icon] = describeForecastWeather(daily.weather_code?.[index]);
+    return {
+      date,
+      minimum: Number(daily.temperature_2m_min?.[index]),
+      maximum: Number(daily.temperature_2m_max?.[index]),
+      precipitationChance: Number(daily.precipitation_probability_max?.[index]),
+      description,
+      icon
+    };
+  });
+}
+
+async function fetchForecast(location, fetchImplementation = fetch) {
+  const latitude = Number(location?.latitude);
+  const longitude = Number(location?.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) throw new Error("Coordonate invalide");
+
+  const url = new URL("https://api.open-meteo.com/v1/forecast");
+  url.searchParams.set("latitude", String(latitude));
+  url.searchParams.set("longitude", String(longitude));
+  url.searchParams.set("daily", "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max");
+  url.searchParams.set("timezone", "auto");
+  url.searchParams.set("forecast_days", "5");
+  const response = await fetchImplementation(url, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(15_000) });
+  if (!response.ok) throw new Error(`Serviciul de prognoză a răspuns cu ${response.status}`);
+  return parseForecastPayload(await response.json());
+}
+
+module.exports = { describeForecastWeather, describeWeather, fetchForecast, fetchWeather, parseForecastPayload, parseWeatherPayload };
